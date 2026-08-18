@@ -12,30 +12,39 @@ import (
 	"trox.dev/file-converter/internal/convert"
 )
 
-// fakeConverter is a minimal Converter test double with no lifecycle.
+// fakeConverter is a minimal Converter test double. A nil canHandle behaves
+// as "matches nothing" so it's safe to leave unset in tests that don't care.
 type fakeConverter struct {
 	canHandle func(src, tgt convert.MediaType) bool
 }
 
-func (f *fakeConverter) CanHandle(src, tgt convert.MediaType) bool { return f.canHandle(src, tgt) }
+func (f *fakeConverter) Name() string {
+	return "fakeConverter"
+}
+
+func (f *fakeConverter) CanHandle(src, tgt convert.MediaType) bool {
+	if f.canHandle == nil {
+		return false
+	}
+	return f.canHandle(src, tgt)
+}
+
 func (f *fakeConverter) Convert(context.Context, io.ReadSeeker, io.Writer, convert.Options) error {
 	return nil
 }
 
-// fakeLifecycleConverter additionally implements Lifecycle. If order is set,
-// Start/Stop append name to it, so tests can assert call sequencing.
 type fakeLifecycleConverter struct {
+	fakeConverter
 	name     string
 	startErr error
 	stopErr  error
 	started  bool
 	stopped  bool
-	order    *[]string
+	order    *[]string // if set, Start/Stop append name here to record call order
 }
 
-func (f *fakeLifecycleConverter) CanHandle(convert.MediaType, convert.MediaType) bool { return false }
-func (f *fakeLifecycleConverter) Convert(context.Context, io.ReadSeeker, io.Writer, convert.Options) error {
-	return nil
+func (f *fakeLifecycleConverter) Name() string {
+	return "fakeLifecycleConverter " + f.name
 }
 
 func (f *fakeLifecycleConverter) Start() error {
@@ -59,7 +68,9 @@ func TestRegistry_Lookup(t *testing.T) {
 		return src == "image/png" && tgt == "image/webp"
 	}}
 	anyImage := &fakeConverter{canHandle: func(src, tgt convert.MediaType) bool {
-		return strings.HasPrefix(string(src), "image/") && strings.HasPrefix(string(tgt), "image/")
+		return strings.HasPrefix(string(src), "image/") &&
+			strings.HasPrefix(string(tgt), "image/") &&
+			src != tgt
 	}}
 
 	tests := []struct {
@@ -90,6 +101,13 @@ func TestRegistry_Lookup(t *testing.T) {
 			tgt:       "image/jpeg",
 			wantNoHit: true,
 		},
+		{
+			name:      "identical source and target does not match, even against a wildcard transformer",
+			register:  []convert.Converter{anyImage},
+			src:       "image/png",
+			tgt:       "image/png",
+			wantNoHit: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -118,28 +136,53 @@ func TestRegistry_Lookup(t *testing.T) {
 }
 
 func TestRegistry_Formats(t *testing.T) {
-	r := &convert.Registry{}
-	r.Register(&fakeConverter{canHandle: func(src, tgt convert.MediaType) bool {
-		return strings.HasPrefix(string(src), "image/") && strings.HasPrefix(string(tgt), "image/")
-	}})
-
 	known := []convert.MediaType{"image/png", "image/webp", "image/avif"}
 
-	got := r.Formats(known)
-	want := map[convert.MediaType][]convert.MediaType{
-		"image/png":  {"image/webp", "image/avif"},
-		"image/webp": {"image/png", "image/avif"},
-		"image/avif": {"image/png", "image/webp"},
-	}
+	t.Run("every pair a registered transformer can handle appears in the matrix", func(t *testing.T) {
+		r := &convert.Registry{}
+		r.Register(&fakeConverter{canHandle: func(src, tgt convert.MediaType) bool {
+			return strings.HasPrefix(string(src), "image/") &&
+				strings.HasPrefix(string(tgt), "image/") &&
+				src != tgt
+		}})
 
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("Formats() mismatch (-want +got):\n%s", diff)
-	}
+		got := r.Formats(known)
+		want := map[convert.MediaType][]convert.MediaType{
+			"image/png":  {"image/webp", "image/avif"},
+			"image/webp": {"image/png", "image/avif"},
+			"image/avif": {"image/png", "image/webp"},
+		}
+
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Formats() mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("a format with no valid target is absent from the map, not present with an empty slice", func(t *testing.T) {
+		r := &convert.Registry{}
+		r.Register(&fakeConverter{canHandle: func(src, tgt convert.MediaType) bool {
+			return src == "image/png" && tgt == "image/webp"
+		}})
+
+		got := r.Formats(known)
+		want := map[convert.MediaType][]convert.MediaType{
+			"image/png": {"image/webp"},
+			// image/webp and image/avif have no valid target and must not
+			// appear as keys at all.
+		}
+
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Formats() mismatch (-want +got):\n%s", diff)
+		}
+		if _, ok := got["image/avif"]; ok {
+			t.Error(`expected "image/avif" to be absent from the map, not present with an empty slice`)
+		}
+	})
 }
 
 func TestRegistry_StartAll(t *testing.T) {
 	t.Run("only Lifecycle transformers are started", func(t *testing.T) {
-		plain := &fakeConverter{canHandle: func(convert.MediaType, convert.MediaType) bool { return false }}
+		plain := &fakeConverter{}
 		lc := &fakeLifecycleConverter{}
 
 		r := &convert.Registry{}
@@ -154,32 +197,32 @@ func TestRegistry_StartAll(t *testing.T) {
 		}
 	})
 
-	// Pins StartAll's current short-circuit behavior: it stops at the first
-	// failure rather than attempting every transformer like StopAll does.
-	// If that's ever changed to match StopAll's aggregate-everything
-	// approach, this test is expected to need updating too.
-	t.Run("stops at the first Start error", func(t *testing.T) {
-		wantErr := errors.New("start failed")
-		first := &fakeLifecycleConverter{startErr: wantErr}
-		second := &fakeLifecycleConverter{}
+	t.Run("aggregates errors from every transformer instead of stopping at the first", func(t *testing.T) {
+		errA := errors.New("start A failed")
+		errB := errors.New("start B failed")
+		a := &fakeLifecycleConverter{startErr: errA}
+		b := &fakeLifecycleConverter{startErr: errB}
 
 		r := &convert.Registry{}
-		r.Register(first)
-		r.Register(second)
+		r.Register(a)
+		r.Register(b)
 
 		err := r.StartAll()
-		if !errors.Is(err, wantErr) {
-			t.Fatalf("StartAll() = %v, want %v", err, wantErr)
+		if !errors.Is(err, errA) {
+			t.Errorf("StartAll() error does not wrap %v", errA)
 		}
-		if second.started {
-			t.Error("expected the second transformer not to be started after the first failed")
+		if !errors.Is(err, errB) {
+			t.Errorf("StartAll() error does not wrap %v", errB)
+		}
+		if !a.started || !b.started {
+			t.Error("expected both transformers to have Start() called despite errors")
 		}
 	})
 }
 
 func TestRegistry_StopAll(t *testing.T) {
 	t.Run("only Lifecycle transformers are stopped", func(t *testing.T) {
-		plain := &fakeConverter{canHandle: func(convert.MediaType, convert.MediaType) bool { return false }}
+		plain := &fakeConverter{}
 		lc := &fakeLifecycleConverter{}
 
 		r := &convert.Registry{}

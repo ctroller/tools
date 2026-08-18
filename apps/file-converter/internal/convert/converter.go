@@ -17,6 +17,7 @@ type Options struct {
 }
 
 type Converter interface {
+	Name() string
 	CanHandle(src, tgt MediaType) bool
 	Convert(ctx context.Context, in io.ReadSeeker, out io.Writer, opts Options) error
 }

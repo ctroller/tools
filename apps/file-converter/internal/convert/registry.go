@@ -37,22 +37,24 @@ func (r *Registry) Formats(known []MediaType) map[MediaType][]MediaType {
 }
 
 func (r *Registry) StartAll() error {
+	var errs []error
 	for _, t := range r.transformers {
 		if lc, ok := t.(Lifecycle); ok {
-			slog.Info("Starting up converter lifecycle", "converter", lc)
+			slog.Info("Starting up converter lifecycle", "converter", t.Name())
 			if err := lc.Start(); err != nil {
-				return err
+				errs = append(errs, err)
 			}
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func (r *Registry) StopAll() error {
 	var errs []error
 	for i := len(r.transformers) - 1; i >= 0; i-- {
-		if lc, ok := r.transformers[i].(Lifecycle); ok {
-			slog.Info("Stopping converter lifecycle", "converter", lc)
+		t := r.transformers[i]
+		if lc, ok := t.(Lifecycle); ok {
+			slog.Info("Stopping converter lifecycle", "converter", t.Name())
 			if err := lc.Stop(); err != nil {
 				errs = append(errs, err)
 			}
