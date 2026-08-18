@@ -103,11 +103,9 @@ func (app *Application) setupRegistry() {
 }
 
 func (app *Application) setupHTTP() {
-	mux := http.NewServeMux()
-
 	app.Server = &http.Server{
 		Addr:              app.Config.HTTP.Address + ":" + strconv.Itoa(app.Config.HTTP.Port),
-		Handler:           mux,
+		Handler:           http.NewServeMux(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,

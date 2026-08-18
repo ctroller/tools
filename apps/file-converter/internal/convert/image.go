@@ -50,6 +50,14 @@ func internalConvert(image *vips.ImageRef, out io.Writer, opts Options) error {
 	switch tgt {
 	case "jpg", "jpeg":
 		buf, _, err = image.ExportJpeg(nil)
+	case "avif":
+		buf, _, err = image.ExportAvif(nil)
+	case "webp":
+		buf, _, err = image.ExportWebp(nil)
+	case "png":
+		buf, _, err = image.ExportPng(nil)
+	case "gif":
+		buf, _, err = image.ExportGIF(nil)
 	default:
 		return fmt.Errorf("unsupported target format %s", opts.Target)
 	}
