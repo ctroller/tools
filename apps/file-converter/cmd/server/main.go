@@ -46,10 +46,12 @@ func main() {
 
 	serverErr := make(chan error, 1)
 	go func() {
+		slog.Info("HTTP Server running", "address", app.Server.Addr)
 		if err := app.Server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serverErr <- err
 			return
 		}
+
 		close(serverErr)
 	}()
 
@@ -59,6 +61,7 @@ func main() {
 			slog.Error("http server failed to start", "err", err)
 		}
 	case <-ctx.Done():
+		slog.Info("Received shutdown signal")
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -68,7 +71,7 @@ func main() {
 		slog.Error("Error during HTTP server shutdown", "err", err)
 	}
 
-	slog.Info("Application stopped successfully.")
+	slog.Info("Application stopped successfully")
 }
 
 func readConfig() *Config {
@@ -81,7 +84,7 @@ func readConfig() *Config {
 		},
 	}
 
-	slog.Info("Config initialized: ", "config", cfg)
+	slog.Info("Config initialized")
 
 	return cfg
 }
@@ -89,6 +92,7 @@ func readConfig() *Config {
 func (app *Application) setupRegistry() {
 	slog.Info("Setting up converter registry...")
 	app.Registry = convert.NewRegistry()
+	app.Registry.Register(convert.NewVipsConverter())
 
 	if err := app.Registry.StartAll(); err != nil {
 		slog.Error("Failed to start converter registry.", "err", err)

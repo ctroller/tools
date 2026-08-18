@@ -14,6 +14,7 @@ type Lifecycle interface {
 }
 
 type Options struct {
+	Target MediaType
 }
 
 type Converter interface {
