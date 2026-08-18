@@ -1,7 +1,7 @@
 FROM golang:1.26-trixie AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libvips42t64 \
+        libvips-dev \
         pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
