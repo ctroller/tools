@@ -99,7 +99,12 @@ func (app *Application) setupRegistry() {
 		os.Exit(1)
 	}
 
-	slog.Info("Converter registry setup successful.", "numConverters", len(app.Registry.GetAll()))
+	var convNames []string
+	for _, conv := range app.Registry.GetAll() {
+		convNames = append(convNames, conv.Name())
+	}
+
+	slog.Info("Converter registry setup successful.", "converters", convNames)
 }
 
 func (app *Application) setupHTTP() {
