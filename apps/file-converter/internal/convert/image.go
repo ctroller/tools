@@ -5,32 +5,45 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"github.com/davidbyttow/govips/v2/vips"
 )
 
-type VipsConverter struct {
+var types = []MediaType{"image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"}
+
+type ImageConverter struct {
 }
 
-func (c VipsConverter) Start() error {
+func (c ImageConverter) Start() error {
 	return vips.Startup(nil)
 }
 
-func (c VipsConverter) Stop() error {
+func (c ImageConverter) Stop() error {
 	vips.Shutdown()
 	return nil
 }
 
-func (c VipsConverter) Name() string {
-	return "VipsConverter"
+func (c ImageConverter) Name() string {
+	return "ImageConverter"
 }
 
-func (c VipsConverter) CanHandle(src, tgt MediaType) bool {
-	return src != tgt && strings.HasPrefix(string(src), "image/") && strings.HasPrefix(string(tgt), "image/")
+func (c ImageConverter) SupportedTargets(src MediaType) []MediaType {
+	if !slices.Contains(types, src) {
+		return nil
+	}
+
+	var targets []MediaType
+	for _, t := range types {
+		if t != src {
+			targets = append(targets, t)
+		}
+	}
+	return targets
 }
 
-func (c VipsConverter) Convert(_ context.Context, in io.ReadSeeker, out io.Writer, opts Options) error {
+func (c ImageConverter) Convert(_ context.Context, in io.ReadSeeker, out io.Writer, opts Options) error {
 	image, err := vips.NewImageFromReader(in)
 	if err != nil {
 		return err
@@ -74,6 +87,6 @@ func internalConvert(image *vips.ImageRef, out io.Writer, opts Options) error {
 	return nil
 }
 
-func NewVipsConverter() *VipsConverter {
-	return &VipsConverter{}
+func NewImageConverter() *ImageConverter {
+	return &ImageConverter{}
 }

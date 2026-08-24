@@ -5,7 +5,7 @@
 No code yet. This document is the settled architecture from a design
 discussion (2026-08-18) — read it before scaffolding, it's the re-entry
 point for this app specifically. Top-level repo contract (repo layout,
-routing/StripPrefix, dev environment) lives in the root `CLAUDE.md`; this
+routing/StripPrefix, dev environment) lives in the root `AGENTS.md`; this
 file only covers what's specific to file-converter.
 
 ## Scope (current)

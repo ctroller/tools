@@ -3,6 +3,7 @@ package convert
 import (
 	"errors"
 	"log/slog"
+	"slices"
 )
 
 type Registry struct {
@@ -15,25 +16,30 @@ func (r *Registry) Register(c Converter) {
 
 func (r *Registry) Lookup(src, tgt MediaType) (Converter, bool) {
 	for _, t := range r.transformers {
-		if t.CanHandle(src, tgt) {
+		if slices.Contains(t.SupportedTargets(src), tgt) {
 			return t, true
 		}
 	}
+
 	return nil, false
 }
 
-func (r *Registry) Formats(known []MediaType) map[MediaType][]MediaType {
-	matrix := make(map[MediaType][]MediaType)
-	for _, src := range known {
-		for _, tgt := range known {
-			if src != tgt {
-				if _, ok := r.Lookup(src, tgt); ok {
-					matrix[src] = append(matrix[src], tgt)
-				}
+func (r *Registry) Formats(src MediaType) []MediaType {
+	check := make(map[MediaType]bool)
+	for _, t := range r.transformers {
+		for _, tgt := range t.SupportedTargets(src) {
+			if _, exists := check[tgt]; !exists {
+				check[tgt] = true
 			}
 		}
 	}
-	return matrix
+
+	formats := make([]MediaType, 0, len(check))
+	for format := range check {
+		formats = append(formats, format)
+	}
+
+	return formats
 }
 
 func (r *Registry) StartAll() error {

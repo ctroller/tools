@@ -92,7 +92,7 @@ func readConfig() *Config {
 func (app *Application) setupRegistry() {
 	slog.Info("Setting up converter registry...")
 	app.Registry = convert.NewRegistry()
-	app.Registry.Register(convert.NewVipsConverter())
+	app.Registry.Register(convert.NewImageConverter())
 
 	if err := app.Registry.StartAll(); err != nil {
 		slog.Error("Failed to start converter registry.", "err", err)

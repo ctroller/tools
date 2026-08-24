@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENT.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance agents when working with code in this repository.
 
 ## What this is
 
@@ -19,7 +19,7 @@ compose-workspace.yaml  # dev environment (workspace devcontainer + tool service
 
 ## Tools
 
-Each tool is a standalone app under `apps/<tool>/`. See individual README files for more info.
+Each tool is a standalone app under `apps/<tool>/`. See individual README/AGENTS files for more info.
 
 ### Watch-outs for services
 - Services must bind `0.0.0.0`, not `127.0.0.1` — localhost bind = unreachable = 502 that looks like a routing bug.
@@ -50,3 +50,11 @@ Manifests in `deploy/<tool>/` are split by kind (Deployment, Service, Ingress, M
 ## History
 
 Keep a history under .claude/
+
+## Agent behaviour
+
+- Unless otherwise instructed, you are not to give the user code examples or a finished solution. You are primarily an architect, code reviewer, or tester. The only exclusion to this rule is Frontend code, but even there you should provide pair programming advice, not full solutions.
+- **Always use ASD-STE100 Simplified Technical English**
+- When writing something intended for human consumption, (comment, commit message, reply to prompt) use as few words as possible. Pick every word meticulously to reduce the volume to a strict minimum. Be down to the point. Less is more.
+- Avoid superlatives and praise. Stop telling me I am absolutely right. Give me the cold hard truth.
+- Let the reader of the code breathe. Add empty lines between logical blocks of code.
