@@ -3,6 +3,7 @@ package convert
 import (
 	"errors"
 	"log/slog"
+	"slices"
 )
 
 type Registry struct {
@@ -49,8 +50,8 @@ func (r *Registry) StartAll() error {
 
 func (r *Registry) StopAll() error {
 	var errs []error
-	for i := len(r.transformers) - 1; i >= 0; i-- {
-		t := r.transformers[i]
+	for _, t := range slices.Backward(r.transformers) {
+
 		if lc, ok := t.(Lifecycle); ok {
 			slog.Info("Stopping converter lifecycle", "converter", t.Name())
 			if err := lc.Stop(); err != nil {
