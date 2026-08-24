@@ -18,11 +18,12 @@ type Options struct {
 }
 
 // Converter A file converter
+//
+// Name The (unique) name of this converter, mostly for debugging purposes
+// SupportedFormats A map of supported output media types this converter can handle for the given input media type (=key).
+// Convert The actual conversion method, reading from `in` into `out`
 type Converter interface {
-	// Name The (unique) name of this converter, mostly for debugging purposes
 	Name() string
-	// SupportedTargets A list of supported output media types this converter can handle for the given input media type.
-	SupportedTargets(src MediaType) []MediaType
-	// Convert The actual conversion
+	SupportedFormats() map[MediaType][]MediaType
 	Convert(ctx context.Context, in io.ReadSeeker, out io.Writer, opts Options) error
 }

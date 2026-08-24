@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"slices"
 	"strings"
 
 	"github.com/davidbyttow/govips/v2/vips"
 )
 
-var types = []MediaType{"image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"}
+var sources = []MediaType{"image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"}
 
 type ImageConverter struct {
+	formats map[MediaType][]MediaType
 }
 
 func (c ImageConverter) Start() error {
@@ -29,18 +29,8 @@ func (c ImageConverter) Name() string {
 	return "ImageConverter"
 }
 
-func (c ImageConverter) SupportedTargets(src MediaType) []MediaType {
-	if !slices.Contains(types, src) {
-		return nil
-	}
-
-	var targets []MediaType
-	for _, t := range types {
-		if t != src {
-			targets = append(targets, t)
-		}
-	}
-	return targets
+func (c ImageConverter) SupportedFormats() map[MediaType][]MediaType {
+	return c.formats
 }
 
 func (c ImageConverter) Convert(_ context.Context, in io.ReadSeeker, out io.Writer, opts Options) error {
@@ -88,5 +78,19 @@ func internalConvert(image *vips.ImageRef, out io.Writer, opts Options) error {
 }
 
 func NewImageConverter() *ImageConverter {
-	return &ImageConverter{}
+	var formats = make(map[MediaType][]MediaType)
+	for _, src := range sources {
+		var tmpFormats []MediaType
+		for _, tgt := range sources {
+			if src != tgt {
+				tmpFormats = append(tmpFormats, tgt)
+			}
+		}
+
+		formats[src] = tmpFormats
+	}
+
+	return &ImageConverter{
+		formats,
+	}
 }

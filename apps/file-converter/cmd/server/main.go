@@ -94,6 +94,10 @@ func (app *Application) setupRegistry() {
 	app.Registry = convert.NewRegistry()
 	app.Registry.Register(convert.NewImageConverter())
 
+	// Must run after the last Register call above and before the registry
+	// serves any request — see Registry.Build's doc comment.
+	app.Registry.Build()
+
 	if err := app.Registry.StartAll(); err != nil {
 		slog.Error("Failed to start converter registry.", "err", err)
 		os.Exit(1)

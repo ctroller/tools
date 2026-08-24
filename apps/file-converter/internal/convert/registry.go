@@ -3,11 +3,11 @@ package convert
 import (
 	"errors"
 	"log/slog"
-	"slices"
 )
 
 type Registry struct {
 	transformers []Converter
+	owners       map[MediaType]map[MediaType]Converter
 }
 
 func (r *Registry) Register(c Converter) {
@@ -15,31 +15,23 @@ func (r *Registry) Register(c Converter) {
 }
 
 func (r *Registry) Lookup(src, tgt MediaType) (Converter, bool) {
-	for _, t := range r.transformers {
-		if slices.Contains(t.SupportedTargets(src), tgt) {
-			return t, true
-		}
-	}
-
-	return nil, false
+	conv, ok := r.owners[src][tgt]
+	return conv, ok
 }
 
-func (r *Registry) Formats(src MediaType) []MediaType {
-	check := make(map[MediaType]bool)
-	for _, t := range r.transformers {
-		for _, tgt := range t.SupportedTargets(src) {
-			if _, exists := check[tgt]; !exists {
-				check[tgt] = true
-			}
+// Formats is derived from owners, not from re-walking transformers directly.
+// Doing the latter previously aliased a converter's own cached SupportedFormats
+// slice and appended into it across converters, corrupting that converter's
+// state; deriving from owners also guarantees this never advertises a pair
+// that Lookup wouldn't actually honor.
+func (r *Registry) Formats() map[MediaType][]MediaType {
+	matrix := make(map[MediaType][]MediaType, len(r.owners))
+	for src, targets := range r.owners {
+		for tgt := range targets {
+			matrix[src] = append(matrix[src], tgt)
 		}
 	}
-
-	formats := make([]MediaType, 0, len(check))
-	for format := range check {
-		formats = append(formats, format)
-	}
-
-	return formats
+	return matrix
 }
 
 func (r *Registry) StartAll() error {
@@ -72,6 +64,27 @@ func (r *Registry) StopAll() error {
 
 func (r *Registry) GetAll() []Converter {
 	return r.transformers
+}
+
+// Build snapshots the currently registered transformers into owners, powering
+// Lookup and Formats. It must run after the last Register call and before the
+// registry is used to serve requests: Lookup/Formats silently read an empty
+// owners map if called first, and a transformer registered after Build has
+// already run stays invisible until Build runs again.
+func (r *Registry) Build() {
+	r.owners = make(map[MediaType]map[MediaType]Converter)
+	for _, t := range r.transformers {
+		for src, targets := range t.SupportedFormats() {
+			if r.owners[src] == nil {
+				r.owners[src] = make(map[MediaType]Converter)
+			}
+			for _, tgt := range targets {
+				if _, claimed := r.owners[src][tgt]; !claimed {
+					r.owners[src][tgt] = t // first-registered converter to claim (src,tgt) wins
+				}
+			}
+		}
+	}
 }
 
 func NewRegistry() *Registry {
