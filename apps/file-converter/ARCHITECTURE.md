@@ -79,7 +79,7 @@ similar) mapping each `MediaType` (MIME type) to its canonical file
 extension. That's the only mapping needed — `MediaType` values are used
 directly on the wire, so there's no separate slug vocabulary to keep in
 sync. Referenced by the output filename extension and nowhere else needs
-it. **Not yet built** — `image.go`'s `sources` var and `internalConvert`'s
+it. **Not yet built** — `image.go`'s `ImageTypes` var and `internalConvert`'s
 switch statement currently duplicate format knowledge independently.
 
 ## HTTP API
