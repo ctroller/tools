@@ -41,7 +41,10 @@ func (r *Registry) Formats() map[MediaType][]MediaType {
 		for tgt := range targets {
 			matrix[src] = append(matrix[src], tgt)
 		}
+
+		slices.Sort(matrix[src])
 	}
+
 	return matrix
 }
 
