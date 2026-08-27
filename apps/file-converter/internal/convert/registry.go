@@ -13,6 +13,16 @@ type Registry struct {
 
 func (r *Registry) Register(c Converter) {
 	r.transformers = append(r.transformers, c)
+	for src, targets := range c.SupportedFormats() {
+		if r.owners[src] == nil {
+			r.owners[src] = make(map[MediaType]Converter)
+		}
+		for _, tgt := range targets {
+			if _, claimed := r.owners[src][tgt]; !claimed {
+				r.owners[src][tgt] = c // first-registered converter to claim (src,tgt) wins
+			}
+		}
+	}
 }
 
 func (r *Registry) Lookup(src, tgt MediaType) (Converter, bool) {
@@ -63,31 +73,12 @@ func (r *Registry) StopAll() error {
 	return errors.Join(errs...)
 }
 
-func (r *Registry) GetAll() []Converter {
+func (r *Registry) List() []Converter {
 	return r.transformers
 }
 
-// Build snapshots the currently registered transformers into owners, powering
-// Lookup and Formats. It must run after the last Register call and before the
-// registry is used to serve requests: Lookup/Formats silently read an empty
-// owners map if called first, and a transformer registered after Build has
-// already run stays invisible until Build runs again.
-func (r *Registry) Build() {
-	r.owners = make(map[MediaType]map[MediaType]Converter)
-	for _, t := range r.transformers {
-		for src, targets := range t.SupportedFormats() {
-			if r.owners[src] == nil {
-				r.owners[src] = make(map[MediaType]Converter)
-			}
-			for _, tgt := range targets {
-				if _, claimed := r.owners[src][tgt]; !claimed {
-					r.owners[src][tgt] = t // first-registered converter to claim (src,tgt) wins
-				}
-			}
-		}
-	}
-}
-
 func NewRegistry() *Registry {
-	return &Registry{}
+	return &Registry{
+		owners: make(map[MediaType]map[MediaType]Converter),
+	}
 }

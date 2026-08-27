@@ -10,7 +10,7 @@ import (
 	"github.com/davidbyttow/govips/v2/vips"
 )
 
-var sources = []MediaType{"image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"}
+var imageTypes = []MediaType{"image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"}
 
 type ImageConverter struct {
 	formats map[MediaType][]MediaType
@@ -36,7 +36,7 @@ func (c ImageConverter) SupportedFormats() map[MediaType][]MediaType {
 func (c ImageConverter) Convert(_ context.Context, in io.ReadSeeker, out io.Writer, opts Options) error {
 	image, err := vips.NewImageFromReader(in)
 	if err != nil {
-		return err
+		return fmt.Errorf("can't create image from reader: %w", err)
 	}
 	defer image.Close()
 
@@ -66,12 +66,12 @@ func internalConvert(image *vips.ImageRef, out io.Writer, opts Options) error {
 	}
 
 	if err != nil {
-		return err
+		return fmt.Errorf("can't create export image: %w", err)
 	}
 
 	_, err = out.Write(buf)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to write to output: %w", err)
 	}
 
 	return nil
@@ -79,9 +79,9 @@ func internalConvert(image *vips.ImageRef, out io.Writer, opts Options) error {
 
 func NewImageConverter() *ImageConverter {
 	var formats = make(map[MediaType][]MediaType)
-	for _, src := range sources {
+	for _, src := range imageTypes {
 		var tmpFormats []MediaType
-		for _, tgt := range sources {
+		for _, tgt := range imageTypes {
 			if src != tgt {
 				tmpFormats = append(tmpFormats, tgt)
 			}

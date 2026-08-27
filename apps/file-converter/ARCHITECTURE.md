@@ -65,9 +65,7 @@ the same value, again with no lookup.
 `SupportedFormats()` replaces an earlier `CanHandle(src, tgt)` predicate
 design. Each converter states its full source→targets map directly — e.g.
 `ImageConverter` builds all pairs among its five image types, excluding
-self, once in its constructor. `Registry.Build()` merges every registered
-converter's map into one src→tgt→owner table, once, after all `Register`
-calls — first-registered converter wins a given pair. That table backs both
+self, once in its constructor. That table backs both
 `Lookup` (routing, at convert time) and `Formats` (used by `POST /files`,
 see "HTTP API") directly, so the two can never disagree.
 
