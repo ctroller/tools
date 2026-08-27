@@ -109,15 +109,9 @@ func (app *Application) setupRegistry() {
 }
 
 func (app *Application) setupHTTP() {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/formats", func(w http.ResponseWriter, r *http.Request) {
-		httpapi.Formats(w, app.Registry)
-	})
-
 	app.Server = &http.Server{
 		Addr:              app.Config.HTTP.Address + ":" + strconv.Itoa(app.Config.HTTP.Port),
-		Handler:           mux,
+		Handler:           httpapi.NewRouter(app.Registry),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
