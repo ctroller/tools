@@ -1,12 +1,10 @@
-import { render, screen } from '@testing-library/svelte';
-import { describe, expect, it, vi } from 'vitest';
-import { readable } from 'svelte/store';
-
-vi.mock('$app/stores', () => ({
-	page: readable({ status: 404, error: { message: 'Not Found' } })
-}));
-
+import {render, screen} from '@testing-library/svelte';
+import {describe, expect, it, vi} from 'vitest';
 import ErrorPage from './+error.svelte';
+
+vi.mock('$app/state', () => ({
+	page: {status: 404, error: {message: 'Not Found'}}
+}));
 
 describe('+error.svelte', () => {
 	it('shows the status code and error message', () => {
