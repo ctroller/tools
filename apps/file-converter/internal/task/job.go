@@ -19,7 +19,8 @@ const (
 )
 
 type JobResult struct {
-	JobID  string
-	Status JobStatus
-	Error  error
+	JobID    string
+	FilePath string
+	Status   JobStatus
+	Error    error
 }

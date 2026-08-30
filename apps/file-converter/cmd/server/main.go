@@ -39,10 +39,10 @@ func main() {
 		Config: readConfig(),
 		Queue:  task.NewQueue(5, 1, task.NewStatusStore()),
 	}
-	defer app.stop()
 
 	app.setupRegistry()
 	app.setupHTTP()
+	app.Queue.Start(context.Background())
 
 	// graceful shutdown handling
 	ctx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -74,6 +74,8 @@ func main() {
 	if err := app.Server.Shutdown(shutdownCtx); err != nil {
 		slog.Error("Error during HTTP server shutdown", "err", err)
 	}
+
+	app.stop(shutdownCtx)
 
 	slog.Info("Application stopped successfully")
 }
@@ -122,10 +124,12 @@ func (app *Application) setupHTTP() {
 	}
 }
 
-func (app *Application) stop() {
+func (app *Application) stop(ctx context.Context) {
 	if err := app.Registry.StopAll(); err != nil {
 		slog.Error("Failed to stop registry", "err", err)
 	}
 
-	app.Queue.Shutdown()
+	if err := app.Queue.Shutdown(ctx); err != nil {
+		slog.Error("Queue did not drain before shutdown deadline", "err", err)
+	}
 }
