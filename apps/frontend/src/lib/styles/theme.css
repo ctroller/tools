@@ -22,8 +22,21 @@
 h1,
 h2,
 h3 {
-    font-family: 'Allerta Stencil', var(--pico-font-family);
+    font-family: 'Allerta Stencil', var(--pico-font-family), sans-serif;
     letter-spacing: 0.03em;
     text-transform: uppercase;
     color: #ede7da;
+}
+
+/* Keeps the footer pinned to the viewport bottom on short pages instead of
+   floating right under sparse content. */
+html,
+body {
+    height: 100%;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }

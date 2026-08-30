@@ -1,20 +1,7 @@
-<script>
+<script lang="ts">
+	import ToolShell from '$lib/components/ToolShell.svelte';
 </script>
 
-<div class="tool-page">
-
-	<h1><span class="part-number">#001</span> - File Converter</h1>
+<ToolShell>
 	<p aria-busy="true">Coming soon.</p>
-</div>
-
-<style>
-	.tool-page {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	.part-number {
-		color: #d9531e;
-	}
-</style>
+</ToolShell>
