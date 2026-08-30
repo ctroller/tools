@@ -225,12 +225,6 @@ base is **Debian-slim, not Alpine** (musl + cgo + libvips is a known
 pain point). Fits the k3s single-node 8GB budget fine, but won't be as lean
 as a pure static-Go image.
 
-Job state (bbolt) and temp files live on local disk — needs a persistent
-volume in the k3s deployment, not just ephemeral pod storage. Implies a
-single replica: bbolt is one process's embedded store, not shared across
-pods. No horizontal scaling without further work (a shared store, or moving
-job state out of process) — acceptable for a single-node deployment.
-
 ## Frontend contract (file-converter specific)
 
 Backend is a **pure JSON API + binary streaming** — no HTML fragments, ever,

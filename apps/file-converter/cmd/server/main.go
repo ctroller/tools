@@ -13,6 +13,7 @@ import (
 
 	"trox.dev/file-converter/internal/convert"
 	"trox.dev/file-converter/internal/httpapi"
+	"trox.dev/file-converter/internal/task"
 )
 
 type HTTPConfig struct {
@@ -28,6 +29,7 @@ type Application struct {
 	Config   *Config
 	Registry *convert.Registry
 	Server   *http.Server
+	Queue    *task.Queue
 }
 
 func main() {
@@ -35,6 +37,7 @@ func main() {
 
 	app := &Application{
 		Config: readConfig(),
+		Queue:  task.NewQueue(5, 1, task.NewStatusStore()),
 	}
 	defer app.stop()
 
@@ -123,4 +126,6 @@ func (app *Application) stop() {
 	if err := app.Registry.StopAll(); err != nil {
 		slog.Error("Failed to stop registry", "err", err)
 	}
+
+	app.Queue.Shutdown()
 }
