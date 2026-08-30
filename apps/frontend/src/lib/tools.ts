@@ -1,15 +1,17 @@
-export type Tool = {
-    partNumber: string
-    name: string
-    description: string
-    href: string
-}
+import type {RouteId} from '$app/types';
 
-export const Tools = [
+export type Tool = {
+    partNumber: string;
+    name: string;
+    description: string;
+    href: RouteId;
+};
+
+export const Tools: Tool[] = [
     {
-        partNumber: "001",
-        name: "File Converter",
-        description: "Convert files between various formats.",
-        href: "/tools/file-converter"
+        partNumber: '001',
+        name: 'File Converter',
+        description: 'Convert files between various formats.',
+        href: '/tools/file-converter'
     }
-]
+];

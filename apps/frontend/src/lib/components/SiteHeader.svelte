@@ -1,8 +1,12 @@
+<script lang="ts">
+	import {resolve} from '$app/paths';
+</script>
+
 <header class="crate-label container-fluid">
 	<nav>
 		<ul>
 			<li>
-				<strong><a href="/">Tools</a></strong>
+				<strong><a href={resolve('/')}>Tools</a></strong>
 				<span class="tagline">Personal Toolbox</span>
 			</li>
 		</ul>
