@@ -45,6 +45,11 @@ Rejected specifically:
 - **Multi-page static HTML** — the original plan. Reopened once a
   build step became unavoidable (TS) and scale (10+ tools) made a real
   component/routing model worth having.
+- **Lit** — considered earlier as "keep custom elements, add TS," before
+  the decision to go full SPA. Superseded once a real app framework
+  (routing, TS-native components) was on the table anyway — Lit itself
+  has no built-in router, so it would've needed one bolted on for the
+  same routing need SvelteKit gives natively.
 
 Chosen: **Svelte**, via **SvelteKit** (file-based routing, TS wired in,
 builds on Vite underneath) rather than plain Svelte + a router library
@@ -115,6 +120,12 @@ dev-server proxy target (`server.proxy`), which is a build/dev-time
 setting, never shipped to the browser. This gives dev the same
 same-origin behavior as prod without CORS handling.
 
+`lib/api/client.ts` holds no base-URL logic, then — its job is a thin
+typed wrapper around `fetch` for relative paths (JSON parsing, shared
+error handling for the backend's `Problem+json` shape). Whether it's
+worth having at all versus calling `fetch` directly per tool is small
+enough to decide during implementation, not here.
+
 ### Build / package manager / deploy
 
 **Bun** — runtime, package manager, and bundler-adjacent tooling.
@@ -165,9 +176,12 @@ tool's UI — not a platform-frontend-wide mechanism yet.
 - **Playwright / end-to-end testing** — named, not scheduled.
 - **Bun as the test runner** — revisit once its Svelte/SvelteKit
   component-testing support matures.
-- Exact route-naming (`/tools/<name>` vs. flatter `/​<name>`) is a
+- Exact route-naming (`/tools/<name>` vs. flatter `/<name>`) is a
   low-stakes detail, not load-bearing — change freely if it stops
   feeling right once more tools exist.
+- **Linting/formatting** — not decided; use whatever the SvelteKit
+  scaffold tool defaults to, revisit only if that default is actually
+  unpleasant to work with.
 
 ## Out of scope
 
