@@ -35,6 +35,7 @@ docker compose -f compose-workspace.yaml up -d
 Attach VS Code to the `workspace` service (devcontainer). Tool services (e.g. `file-converter`) are defined as separate Compose services alongside `workspace` — uncomment them in `compose-workspace.yaml` as tools are built.
 
 Devcontainer ships: Go 1.26, Node 26, kubectl. No Helm or Minikube.
+**Not yet added:** Bun (frontend runtime/package manager, see the frontend design spec) — needed before `apps/frontend/` can build.
 
 ## Routing contract (prod and dev parity)
 
@@ -42,7 +43,7 @@ Public base: `tools.trox.dev`
 - Frontend: `/`
 - Each tool backend: `/api/<tool>/`
 
-**StripPrefix** Traefik middleware strips `/api/<tool>` before forwarding, so each service receives `/` and stays ignorant of its public path. Dev Compose must mirror this contract — frontend reads `API_BASE_URL` from env, never hardcode ports.
+**StripPrefix** Traefik middleware strips `/api/<tool>` before forwarding, so each service receives `/` and stays ignorant of its public path. Frontend and every tool backend share one origin (prod: Traefik; dev: the frontend dev server's proxy), so the frontend calls relative paths (`/api/<tool>/...`) — no `API_BASE_URL` env var, never hardcode ports. See `docs/superpowers/specs/2026-08-30-platform-frontend-design.md`.
 
 ## Kubernetes / deploy
 Manifests in `deploy/<tool>/` are split by kind (Deployment, Service, Ingress, Middleware) to stay GitOps-ready. No Kustomize overlays until there's a second deploy target.
