@@ -286,6 +286,8 @@ Run: `bun run dev`
 
 Open `http://localhost:5173` in a browser. Expected: a "Tools" header link is visible above an empty main area (no page content yet — that's Task 3). Stop the dev server (Ctrl+C) once confirmed.
 
+**If you have no browser tool available** (true for most implementer subagents): say so plainly in your report rather than fabricating this check. The `SiteHeader` component test already proves the component itself renders correctly; this step exists to catch a layout-wiring mistake a unit test can't see (e.g. the component silently not being included). Substitute what you can verify — confirm the dev server starts without error — and note the visual check as not performed in this environment.
+
 - [ ] **Step 7: Commit**
 
 ```bash
@@ -411,6 +413,8 @@ Run: `bun run dev`
 
 Open `http://localhost:5173`, click "File Converter". Expected: URL becomes `/tools/file-converter`, page shows "File Converter" heading and "Coming soon.", header stays visible (confirms the shared layout persists across client-side navigation). Stop the dev server.
 
+**If you have no browser tool available:** say so plainly rather than fabricating this check — do not invent evidence. The landing-page test (Task 3) already proves the link's `href` is correct, and the placeholder-page test (this task) already proves that route's content renders; what a unit test genuinely can't prove is that SvelteKit's client-side router and shared layout actually persist across navigation in a real browser. That residual risk is accepted as covered by SvelteKit's standard, framework-guaranteed routing behavior (not something that could work for other routes and fail for this one) rather than by an empirical check no available tool can perform.
+
 - [ ] **Step 6: Commit**
 
 ```bash
@@ -484,6 +488,8 @@ Expected: PASS — all tests from Tasks 2–5 green.
 Run: `bun run dev`
 
 Open `http://localhost:5173/does-not-exist`. Expected: the page shows `404` and a not-found message, styled by Pico (not a raw browser error page). Stop the dev server.
+
+**If you have no browser tool available:** say so plainly rather than fabricating this check — do not invent evidence. It's genuinely unclear without testing whether SvelteKit's dev server SSRs this route despite `ssr = false` at the root layout (dev and build don't necessarily behave identically here); if a `curl` against the dev server happens to show real rendered content, report that as a real (if unplanned) data point rather than assuming it will. Either way, the `+error.svelte` component test already proves the component itself renders the right status/message given mocked store data — that's the part a unit test can cover regardless of what curl shows.
 
 - [ ] **Step 6: Commit**
 
@@ -628,15 +634,19 @@ Expected: exits 0.
 
 - [ ] **Step 5: Run it and verify both a static route and a client-only route are served**
 
+**Correction (found during execution, see the plan's execution ledger):** the original version of this step expected `curl | grep -o 'Tools'` to succeed. That's impossible as written — with `ssr = false` (locked in Task 1), the static build's `index.html` is an unhydrated shell with no server-rendered text at all; "Tools" only appears after client-side JS executes in a real browser, which `curl` can never do. The corrected check below verifies the thing this step actually needs to prove — that nginx's `try_files` fallback serves the *same* shell for an unmapped client-only route instead of a raw 404 — without relying on rendered text.
+
 ```bash
 docker run -d --rm -p 8081:80 --name frontend-test frontend-test
 sleep 1
-curl -s http://localhost:8081/ | grep -o 'Tools'
-curl -s http://localhost:8081/tools/file-converter | grep -o 'Tools'
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8081/
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8081/tools/file-converter
+curl -s http://localhost:8081/ | md5sum
+curl -s http://localhost:8081/tools/file-converter | md5sum
 docker stop frontend-test
 ```
 
-Expected: both `curl` calls print `Tools` — the first because it's the actual landing page, the second because nginx's `try_files` fallback served `index.html` (the SPA shell, which also contains the header) for a path that only exists client-side. This is the concrete proof that SSR-off + `adapter-static` fallback + nginx `try_files` work together correctly in the built artifact.
+Expected: both status codes are `200`, and both `md5sum` outputs match each other exactly. That match is the proof — it means nginx served the identical `index.html` file for both the real landing-page path and the client-only route (via the `try_files` fallback), rather than a distinct real file for one and a 404 for the other.
 
 - [ ] **Step 6: Commit**
 
