@@ -7,31 +7,31 @@ import svelte from 'eslint-plugin-svelte';
 import prettier from 'eslint-config-prettier';
 
 export default defineConfig(
-    js.configs.recommended,
-    ts.configs.recommended,
-    svelte.configs.recommended,
-    prettier,
-    svelte.configs.prettier,
-    {
-        languageOptions: {
-            globals: {
-                ...globals.browser,
-                ...globals.node
-            }
-        }
-    },
-    {
-        files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
-        languageOptions: {
-            parserOptions: {
-                projectService: true,
-                extraFileExtensions: ['.svelte'],
-                parser: ts.parser,
-                svelteConfig
-            }
-        }
-    },
-    {
-        ignores: ['build/', '.svelte-kit/', 'node_modules/', 'static/vendor/']
-    }
+	js.configs.recommended,
+	ts.configs.recommended,
+	svelte.configs.recommended,
+	prettier,
+	svelte.configs.prettier,
+	{
+		languageOptions: {
+			globals: {
+				...globals.browser,
+				...globals.node
+			}
+		}
+	},
+	{
+		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
+		languageOptions: {
+			parserOptions: {
+				projectService: true,
+				extraFileExtensions: ['.svelte'],
+				parser: ts.parser,
+				svelteConfig
+			}
+		}
+	},
+	{
+		ignores: ['build/', '.svelte-kit/', 'node_modules/', 'static/vendor/']
+	}
 );

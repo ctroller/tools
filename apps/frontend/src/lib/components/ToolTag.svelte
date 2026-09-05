@@ -6,8 +6,10 @@
 		partNumber,
 		name,
 		description,
-		href
-	}: { partNumber: string; name: string; description: string; href: RouteId } = $props();
+		href,
+		tags
+	}: { partNumber: string; name: string; description: string; href: RouteId; tags: string[] } =
+			$props();
 </script>
 
 <a aria-label={name} class="tool-tag" href={resolve(href)}>
@@ -15,6 +17,11 @@
 	<span class="part-number">#{partNumber}</span>
 	<span class="name">{name}</span>
 	<span class="description">{description}</span>
+	<div class="tags">
+		{#each tags as tag (tag)}
+			<span class="tag">{tag}</span>
+		{/each}
+	</div>
 </a>
 
 <style>
@@ -29,13 +36,11 @@
 		border-radius: 0.25rem;
 		color: #2b2a28;
 		text-decoration: none;
-		transition: transform 0.15s ease,
-		box-shadow 0.15s ease;
+		transition: box-shadow 0.15s ease;
 	}
 
 	.tool-tag:hover,
 	.tool-tag:focus-visible {
-		transform: translateY(-2px);
 		box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
 		color: #2b2a28;
 	}
@@ -44,11 +49,20 @@
 		.tool-tag {
 			transition: none;
 		}
+	}
 
-		.tool-tag:hover,
-		.tool-tag:focus-visible {
-			transform: none;
-		}
+	.tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+	}
+
+	.tag {
+		background: #4a4740;
+		color: #ede7da;
+		font-size: 0.5rem;
+		padding: 0.1rem 0.2rem;
+		border-radius: 0.25rem;
 	}
 
 	.grommet {

@@ -4,39 +4,39 @@
 
 :root,
 [data-theme='dark'] {
-    --pico-font-family: 'IBM Plex Mono', ui-monospace, monospace;
-    --pico-background-color: #1c1b19;
-    --pico-color: #ede7da;
-    --pico-muted-color: #8a8578;
-    --pico-muted-border-color: #4a4740;
-    --pico-primary: #d9531e;
-    --pico-primary-background: #d9531e;
-    --pico-primary-hover-background: #b8461a;
-    --pico-primary-border: #d9531e;
-    --pico-primary-hover: #b8461a;
-    --pico-primary-underline: #d9531e;
-    --pico-primary-focus: rgba(217, 83, 30, 0.4);
-    --pico-border-radius: 0.25rem;
+	--pico-font-family: 'IBM Plex Mono', ui-monospace, monospace;
+	--pico-background-color: #1c1b19;
+	--pico-color: #ede7da;
+	--pico-muted-color: #8a8578;
+	--pico-muted-border-color: #4a4740;
+	--pico-primary: #d9531e;
+	--pico-primary-background: #d9531e;
+	--pico-primary-hover-background: #b8461a;
+	--pico-primary-border: #d9531e;
+	--pico-primary-hover: #b8461a;
+	--pico-primary-underline: #d9531e;
+	--pico-primary-focus: rgba(217, 83, 30, 0.4);
+	--pico-border-radius: 0.25rem;
 }
 
 h1,
 h2,
 h3 {
-    font-family: 'Allerta Stencil', var(--pico-font-family), sans-serif;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: #ede7da;
+	font-family: 'Allerta Stencil', var(--pico-font-family), sans-serif;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+	color: #ede7da;
 }
 
 /* Keeps the footer pinned to the viewport bottom on short pages instead of
    floating right under sparse content. */
 html,
 body {
-    height: 100%;
+	height: 100%;
 }
 
 body {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	min-height: 100vh;
 }

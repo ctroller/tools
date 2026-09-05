@@ -3,7 +3,7 @@ import {describe, expect, it, vi} from 'vitest';
 import ErrorPage from './+error.svelte';
 
 vi.mock('$app/state', () => ({
-	page: {status: 404, error: {message: 'Not Found'}}
+    page: {status: 404, error: {message: 'Not Found'}}
 }));
 
 describe('+error.svelte', () => {
