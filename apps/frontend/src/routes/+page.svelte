@@ -1,40 +1,40 @@
 <script lang="ts">
-	import ToolTag from '$lib/components/ToolTag.svelte';
-	import {type Tool, Tools} from '$lib/tools';
+    import ToolTag from '$lib/components/ToolTag.svelte';
+    import {type Tool, Tools} from '$lib/tools';
 
-	let filters: string[] = $state([]);
+    let filters: string[] = $state([]);
 
 	function toggleFilter(tag: string) {
 		filters = filters.includes(tag) ? filters.filter((f) => f !== tag) : [...filters, tag];
 	}
 
 	let filtered: Tool[] = $derived(
-			Tools.filter((tool) => filters.every((tag) => tool.tags.includes(tag)))
+		Tools.filter((tool) => filters.every((tag) => tool.tags.includes(tag)))
 	);
 
 	let allTags: { tag: string; count: number }[] = $derived(
-			Array.from(new Set(Tools.flatMap((tool) => tool.tags)))
-					.sort((a, b) => a.localeCompare(b))
-					.map((tag) => ({tag, count: filtered.filter((tool) => tool.tags.includes(tag)).length}))
+		Array.from(new Set(Tools.flatMap((tool) => tool.tags)))
+			.sort((a, b) => a.localeCompare(b))
+			.map((tag) => ({ tag, count: filtered.filter((tool) => tool.tags.includes(tag)).length }))
 	);
 </script>
 
 <div class="tag-filters">
-	{#each allTags as {tag, count} (tag)}
+	{#each allTags as { tag, count } (tag)}
 		<button
-				type="button"
-				class="tag-filter"
-				class:active={filters.includes(tag)}
-				aria-pressed={filters.includes(tag)}
-				onclick={() => toggleFilter(tag)}>{tag} ({count})
-		</button
-		>
+			type="button"
+			class="tag-filter"
+			class:active={filters.includes(tag)}
+			aria-pressed={filters.includes(tag)}
+			onclick={() => toggleFilter(tag)}
+			>{tag} ({count})
+		</button>
 	{/each}
 </div>
 
 <div class="tool-grid">
 	{#each filtered as tool (tool.href)}
-		<ToolTag {...tool}/>
+		<ToolTag {...tool} />
 	{/each}
 </div>
 

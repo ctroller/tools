@@ -3,7 +3,7 @@
 	import {page} from '$app/state';
 	import {Tools} from '$lib/tools';
 
-	let {children}: { children: Snippet } = $props();
+	let { children }: { children: Snippet } = $props();
 	const tool = Tools.find((t) => t.href === page.url.pathname)!;
 </script>
 
@@ -20,6 +20,6 @@
 	}
 
 	.part-number {
-		color: #d9531e;
+		color: var(--pico-primary);
 	}
 </style>

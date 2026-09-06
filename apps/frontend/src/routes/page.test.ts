@@ -14,20 +14,20 @@ describe('landing page', () => {
 
 	it('lists every tag alphabetically with its tool count', () => {
 		render(Page);
-		const chips = screen.getAllByRole('button', {name: /\(\d+\)$/});
+		const chips = screen.getAllByRole('button', { name: /\(\d+\)$/ });
 		expect(chips.map((chip) => chip.textContent)).toEqual(['converter (1)', 'file (1)']);
 	});
 
 	it('toggles a tag filter from the tag bar', async () => {
 		render(Page);
-		const chip = screen.getByRole('button', {name: 'converter (1)'});
+		const chip = screen.getByRole('button', { name: 'converter (1)' });
 
 		expect(chip.getAttribute('aria-pressed')).toBe('false');
-		expect(screen.getByRole('link', {name: 'File Converter'})).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'File Converter' })).toBeTruthy();
 
 		await fireEvent.click(chip);
 		expect(chip.getAttribute('aria-pressed')).toBe('true');
-		expect(screen.getByRole('link', {name: 'File Converter'})).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'File Converter' })).toBeTruthy();
 
 		await fireEvent.click(chip);
 		expect(chip.getAttribute('aria-pressed')).toBe('false');

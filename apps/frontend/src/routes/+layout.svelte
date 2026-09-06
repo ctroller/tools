@@ -12,7 +12,7 @@
 <main class="container-fluid">
 	{@render children()}
 </main>
-<SiteFooter/>
+<SiteFooter />
 
 <style>
 	main {

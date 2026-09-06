@@ -9,7 +9,7 @@
 		href,
 		tags
 	}: { partNumber: string; name: string; description: string; href: RouteId; tags: string[] } =
-			$props();
+		$props();
 </script>
 
 <a aria-label={name} class="tool-tag" href={resolve(href)}>
@@ -30,7 +30,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.35rem;
-		padding: 1.5rem 1.25rem 1.25rem 1.75rem;
+		padding: 0.7rem 1.25rem 1.25rem 1.75rem;
 		background: #ede7da;
 		border: 1px solid #4a4740;
 		border-radius: 0.25rem;
@@ -72,7 +72,7 @@
 		width: 0.6rem;
 		height: 0.6rem;
 		border-radius: 50%;
-		border: 1.5px solid #4a4740;
+		border: 0.1rem solid #4a4740;
 		background: #1c1b19;
 	}
 
