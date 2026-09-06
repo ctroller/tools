@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"sync"
+	"uuid"
 )
 
 type Queue struct {
@@ -62,6 +63,23 @@ func (q *Queue) process(ctx context.Context, job Job) {
 
 	slog.Info("finished processing job", "id", job.ID)
 	q.store.Set(job.ID, JobResult{Status: StatusDone, FilePath: name})
+}
+
+func (q *Queue) Prepare(path string) JobResult {
+	id := uuid.New().String()
+	for _, found := q.store.Get(id); found; {
+		id = uuid.New().String()
+		_, found = q.store.Get(id)
+	}
+
+	result := JobResult{
+		JobID:    id,
+		Status:   StatusUploaded,
+		FilePath: path,
+	}
+	q.store.Set(id, result)
+
+	return result
 }
 
 func (q *Queue) Submit(job Job) error {

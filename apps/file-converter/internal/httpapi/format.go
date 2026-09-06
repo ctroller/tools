@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-
-	"trox.dev/file-converter/internal/convert"
 )
 
-func Formats(w http.ResponseWriter, registry *convert.Registry) {
+func Formats(w http.ResponseWriter) {
 	formats := registry.Formats()
 	w.Header().Set("Content-Type", "application/json")
 

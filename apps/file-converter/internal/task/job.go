@@ -12,6 +12,7 @@ type Job struct {
 type JobStatus string
 
 const (
+	StatusUploaded   JobStatus = "uploaded"
 	StatusPending    JobStatus = "pending"
 	StatusProcessing JobStatus = "processing"
 	StatusDone       JobStatus = "done"

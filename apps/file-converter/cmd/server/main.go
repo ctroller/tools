@@ -116,7 +116,7 @@ func (app *Application) setupRegistry() {
 func (app *Application) setupHTTP() {
 	app.Server = &http.Server{
 		Addr:              app.Config.HTTP.Address + ":" + strconv.Itoa(app.Config.HTTP.Port),
-		Handler:           httpapi.NewRouter(app.Registry),
+		Handler:           httpapi.NewRouter(app.Registry, app.Queue),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
