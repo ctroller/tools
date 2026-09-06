@@ -30,15 +30,13 @@ func Files(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		slog.Error("Failed to parse multipart form", "err", err)
-		http.Error(w, "Failed to parse multipart form", http.StatusBadRequest)
+		HttpProblem(w, "", "Bad Request", http.StatusBadRequest, err.Error())
 		return
 	}
 
-	file, _, err := r.FormFile("file")
+	file, handle, err := r.FormFile("file")
 	if err != nil {
-		slog.Error("Failed to get file from form", "err", err)
-		http.Error(w, "Failed to get file from form", http.StatusBadRequest)
+		HttpProblem(w, "", "Bad Request", http.StatusBadRequest, "Missing file parameter")
 		return
 	}
 	defer func(file multipart.File) {
@@ -50,13 +48,11 @@ func Files(w http.ResponseWriter, r *http.Request) {
 
 	mtype, err := mimetype.DetectReader(file)
 	if err != nil {
-		slog.Error("Failed to detect mimetype", "err", err)
-		http.Error(w, "Failed to detect mimetype", http.StatusInternalServerError)
+		HttpProblemISE(w, "Failed to detect mimetype", err)
 		return
 	}
 	if _, err = file.Seek(0, io.SeekStart); err != nil {
-		slog.Error("Failed to reset file", "err", err)
-		http.Error(w, "Failed to reset file", http.StatusInternalServerError)
+		HttpProblemISE(w, "Failed to reset file", err)
 		return
 	}
 
@@ -64,15 +60,13 @@ func Files(w http.ResponseWriter, r *http.Request) {
 	targets, found := registry.Formats()[source]
 
 	if !found {
-		slog.Error("No conversion targets found", "source", source)
-		http.Error(w, "No conversion targets found", http.StatusUnsupportedMediaType)
+		HttpProblem(w, "", "Unsupported media type", http.StatusUnsupportedMediaType, "The uploaded file "+handle.Filename+" has an unsupported media type ("+mtype.String()+")")
 		return
 	}
 
 	dst, err := createDest()
 	if err != nil {
-		slog.Error("Failed to create file", "err", err)
-		http.Error(w, "Failed to create file", http.StatusInternalServerError)
+		HttpProblemISE(w, "Failed to create file", err)
 		return
 	}
 	defer func(dst multipart.File) {
@@ -83,8 +77,7 @@ func Files(w http.ResponseWriter, r *http.Request) {
 	}(dst)
 
 	if _, err := dst.ReadFrom(file); err != nil {
-		slog.Error("Failed to copy file", "err", err)
-		http.Error(w, "Failed to copy file", http.StatusInternalServerError)
+		HttpProblemISE(w, "Failed to copy file", err)
 		err := os.Remove(dst.Name())
 		if err != nil {
 			slog.Error("Failed to remove file", "err", err)
@@ -100,8 +93,7 @@ func Files(w http.ResponseWriter, r *http.Request) {
 		DetectedSource: source,
 		Targets:        targets,
 	}); err != nil {
-		slog.Error("Failed to encode response", "err", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		HttpProblemISE(w, "Failed to encode response", err)
 		return
 	}
 }
