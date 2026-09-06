@@ -15,12 +15,9 @@ func NewRouter(r *convert.Registry, q *task.Queue) http.Handler {
 	queue = q
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/formats", func(w http.ResponseWriter, r *http.Request) {
-		Formats(w)
-	})
-	mux.HandleFunc("/files", func(w http.ResponseWriter, r *http.Request) {
-		Files(w, r)
-	})
+	mux.HandleFunc("GET /formats", Formats)
+	mux.HandleFunc("POST /files", Files)
+	mux.HandleFunc("GET /files/{handle}", FilesHandle)
 
 	return mux
 }

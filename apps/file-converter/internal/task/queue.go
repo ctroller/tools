@@ -82,6 +82,10 @@ func (q *Queue) Prepare(path string) JobResult {
 	return result
 }
 
+func (q *Queue) Lookup(id string) (JobResult, bool) {
+	return q.store.Get(id)
+}
+
 func (q *Queue) Submit(job Job) error {
 	select {
 	case q.jobs <- job:

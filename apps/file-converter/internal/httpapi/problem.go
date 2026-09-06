@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 )
@@ -34,10 +33,5 @@ func HttpProblem(w http.ResponseWriter, pType, title string, status int, detail 
 		Instance: "",
 	}
 
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(problem); err != nil {
-		slog.Error("failed to encode problem", "err", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	RenderJSONStatus(w, problem, "application/problem+json", status)
 }

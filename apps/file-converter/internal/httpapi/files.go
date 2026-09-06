@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"io"
 	"log/slog"
 	"mime/multipart"
@@ -87,15 +86,7 @@ func Files(w http.ResponseWriter, r *http.Request) {
 
 	res := queue.Prepare(dst.Name())
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(Result{
-		Handle:         res.JobID,
-		DetectedSource: source,
-		Targets:        targets,
-	}); err != nil {
-		HttpProblemISE(w, "Failed to encode response", err)
-		return
-	}
+	RenderJSON(w, Result{Handle: res.JobID, DetectedSource: source, Targets: targets})
 }
 
 func createDest() (*os.File, error) {
