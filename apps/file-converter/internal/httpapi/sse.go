@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -21,6 +22,7 @@ func SSEHandler(w http.ResponseWriter, r *http.Request, d time.Duration, handle 
 		case <-t.C:
 			done := handle(w, r)
 			if err := rc.Flush(); err != nil {
+				slog.Error("Failed to flush response", "err", err)
 				return
 			}
 			if done {
