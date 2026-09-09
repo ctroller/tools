@@ -37,14 +37,14 @@ func RenderJSONStatus(w http.ResponseWriter, data any, cType string, status int)
 	})
 }
 
-func lookupHandle(w http.ResponseWriter, r *http.Request) *FileHandleResult {
+func (a *API) lookupHandle(w http.ResponseWriter, r *http.Request) *FileHandleResult {
 	handle := r.PathValue("handle")
 	if handle == "" {
 		HttpProblem(w, "", "Bad Request", http.StatusBadRequest, "Missing handle param.")
 		return nil
 	}
 
-	result, ok := queue.Lookup(handle)
+	result, ok := a.queue.Lookup(handle)
 	if !ok {
 		HttpProblem(w, "", "Not Found", http.StatusNotFound, "Job with handle "+handle+" not found.")
 		return nil

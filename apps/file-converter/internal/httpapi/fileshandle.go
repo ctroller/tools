@@ -14,20 +14,20 @@ type FileHandleResult struct {
 	Handle string         `json:"handle"`
 }
 
-func FilesHandle(w http.ResponseWriter, r *http.Request) {
-	if result := lookupHandle(w, r); result != nil {
+func (a *API) FilesHandle(w http.ResponseWriter, r *http.Request) {
+	if result := a.lookupHandle(w, r); result != nil {
 		RenderJSON(w, result)
 	}
 }
 
-func FilesHandleStream(w http.ResponseWriter, r *http.Request) (done bool) {
+func (a *API) FilesHandleStream(w http.ResponseWriter, r *http.Request) (done bool) {
 	handle := r.PathValue("handle")
 	if handle == "" {
 		writeSSEData(w, FileHandleResult{Status: task.StatusFailed, Error: "Missing handle param."})
 		return true
 	}
 
-	result, ok := queue.Lookup(handle)
+	result, ok := a.queue.Lookup(handle)
 	if !ok {
 		writeSSEData(w, FileHandleResult{Status: task.StatusFailed, Error: "Job with handle '" + handle + "' not found."})
 		return true

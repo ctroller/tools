@@ -17,7 +17,7 @@ type Result struct {
 	Targets        []convert.MediaType `json:"targets"`
 }
 
-func Files(w http.ResponseWriter, r *http.Request) {
+func (a *API) Files(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseMultipartForm(25 << 20)
 	if r.MultipartForm != nil {
 		defer func(MultipartForm *multipart.Form) {
@@ -56,7 +56,7 @@ func Files(w http.ResponseWriter, r *http.Request) {
 	}
 
 	source := convert.MediaType(mtype.String())
-	targets, found := registry.Formats()[source]
+	targets, found := a.registry.Formats()[source]
 
 	if !found {
 		HttpProblem(w, "", "Unsupported media type", http.StatusUnsupportedMediaType, "The uploaded file "+handle.Filename+" has an unsupported media type ("+mtype.String()+")")
@@ -84,7 +84,7 @@ func Files(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res := queue.Prepare(dst.Name(), source)
+	res := a.queue.Prepare(dst.Name(), source)
 
 	RenderJSON(w, Result{Handle: res.JobID, DetectedSource: source, Targets: targets})
 }

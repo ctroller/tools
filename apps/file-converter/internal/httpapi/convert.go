@@ -9,7 +9,7 @@ import (
 	"trox.dev/file-converter/internal/task"
 )
 
-func Convert(w http.ResponseWriter, r *http.Request) {
+func (a *API) Convert(w http.ResponseWriter, r *http.Request) {
 	handle := r.PathValue("handle")
 	if handle == "" {
 		HttpProblem(w, "", "Bad Request", http.StatusBadRequest, "Missing handle param.")
@@ -22,7 +22,7 @@ func Convert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := queue.StartJob(handle, target); err != nil {
+	if err := a.queue.StartJob(handle, target); err != nil {
 		var notFoundErr common.NotFoundErr
 		var illegalStateErr common.IllegalStateErr
 		var queueFullErr task.QueueFullErr
@@ -39,6 +39,6 @@ func Convert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Location", "/files/"+res.Handle)
+	w.Header().Set("Location", "/files/"+handle)
 	w.WriteHeader(http.StatusAccepted)
 }
