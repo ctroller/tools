@@ -7,20 +7,33 @@ import (
 	"os"
 	"sync"
 	"uuid"
+
+	"trox.dev/file-converter/internal/common"
+	"trox.dev/file-converter/internal/convert"
 )
 
-type Queue struct {
-	jobs    chan Job
-	store   *StatusStore
-	workers int
-	wg      sync.WaitGroup
+type QueueFullErr struct {
 }
 
-func NewQueue(bufferSize, workers int, store *StatusStore) *Queue {
+func (e QueueFullErr) Error() string {
+	return "Queue is at full capacity"
+}
+
+type Queue struct {
+	jobs     chan Job
+	store    *StatusStore
+	registry *convert.Registry
+	workers  int
+	wg       sync.WaitGroup
+	lm       sync.Map
+}
+
+func NewQueue(bufferSize, workers int, store *StatusStore, registry *convert.Registry) *Queue {
 	return &Queue{
-		jobs:    make(chan Job, bufferSize),
-		store:   store,
-		workers: workers,
+		jobs:     make(chan Job, bufferSize),
+		store:    store,
+		registry: registry,
+		workers:  workers,
 	}
 }
 
@@ -47,25 +60,26 @@ func (q *Queue) worker(ctx context.Context) {
 }
 
 func (q *Queue) process(ctx context.Context, job Job) {
-	q.store.Set(job.ID, JobResult{Status: StatusProcessing})
+	q.store.SetStatus(job.ID, StatusProcessing)
 
 	slog.Info("processing job", "id", job.ID)
 	err, name := doWork(ctx, job)
 	if err != nil {
 		slog.Error("failed to process job", "id", job.ID, "err", err)
-		q.store.Set(job.ID, JobResult{Status: StatusFailed, Error: err})
-		err := os.Remove(name)
-		if err != nil {
-			slog.Warn("failed to remove file", "err", err)
+		q.store.Set(job.ID, JobResult{JobID: job.ID, Status: StatusFailed, Error: err})
+		if name != "" {
+			if err := os.Remove(name); err != nil {
+				slog.Warn("failed to remove file", "err", err)
+			}
 		}
 		return
 	}
 
 	slog.Info("finished processing job", "id", job.ID)
-	q.store.Set(job.ID, JobResult{Status: StatusDone, FilePath: name})
+	q.store.Set(job.ID, JobResult{JobID: job.ID, Status: StatusDone, FilePath: name})
 }
 
-func (q *Queue) Prepare(path string) JobResult {
+func (q *Queue) Prepare(path string, src convert.MediaType) JobResult {
 	id := uuid.New().String()
 	for _, found := q.store.Get(id); found; {
 		id = uuid.New().String()
@@ -76,6 +90,7 @@ func (q *Queue) Prepare(path string) JobResult {
 		JobID:    id,
 		Status:   StatusUploaded,
 		FilePath: path,
+		source:   src,
 	}
 	q.store.Set(id, result)
 
@@ -86,13 +101,42 @@ func (q *Queue) Lookup(id string) (JobResult, bool) {
 	return q.store.Get(id)
 }
 
-func (q *Queue) Submit(job Job) error {
+func (q *Queue) StartJob(id string, target convert.MediaType) error {
+	if _, found := q.lm.LoadOrStore(id, true); found {
+		return common.IllegalStateErr{Msg: "job already being started"}
+	}
+	defer q.lm.Delete(id)
+
+	res, found := q.Lookup(id)
+	if !found {
+		return common.NotFoundErr{Msg: "job " + id + " not found"}
+	}
+
+	if res.Status != StatusUploaded {
+		return common.IllegalStateErr{Msg: "job not ready"}
+	}
+
+	conv, found := q.registry.Lookup(res.source, target)
+	if !found {
+		return common.NotFoundErr{Msg: "target converter not found"}
+	}
+
+	q.store.SetStatus(id, StatusPending)
+	job := Job{
+		ID:        id,
+		FilePath:  res.FilePath,
+		Converter: conv,
+		Options: convert.Options{
+			Target: target,
+		},
+	}
+
 	select {
 	case q.jobs <- job:
-		q.store.Set(job.ID, JobResult{Status: StatusPending})
 		return nil
 	default:
-		return errors.New("queue full") // non-blocking submit
+		q.store.SetStatus(id, StatusUploaded)
+		return QueueFullErr{}
 	}
 }
 
@@ -139,5 +183,5 @@ func doWork(ctx context.Context, job Job) (error, string) {
 		}
 	}(out)
 
-	return job.Converter.Convert(ctx, handle, out, job.Opts), out.Name()
+	return job.Converter.Convert(ctx, handle, out, job.Options), out.Name()
 }

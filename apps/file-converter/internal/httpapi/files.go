@@ -84,7 +84,7 @@ func Files(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res := queue.Prepare(dst.Name())
+	res := queue.Prepare(dst.Name(), source)
 
 	RenderJSON(w, Result{Handle: res.JobID, DetectedSource: source, Targets: targets})
 }

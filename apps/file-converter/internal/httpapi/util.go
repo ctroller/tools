@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+
+	"trox.dev/file-converter/internal/task"
 )
 
 func Render(w http.ResponseWriter, cType string, status int, handler func(w io.Writer) error) {
@@ -33,4 +35,30 @@ func RenderJSONStatus(w http.ResponseWriter, data any, cType string, status int)
 	Render(w, cType, status, func(w io.Writer) error {
 		return json.NewEncoder(w).Encode(data)
 	})
+}
+
+func lookupHandle(w http.ResponseWriter, r *http.Request) *FileHandleResult {
+	handle := r.PathValue("handle")
+	if handle == "" {
+		HttpProblem(w, "", "Bad Request", http.StatusBadRequest, "Missing handle param.")
+		return nil
+	}
+
+	result, ok := queue.Lookup(handle)
+	if !ok {
+		HttpProblem(w, "", "Not Found", http.StatusNotFound, "Job with handle "+handle+" not found.")
+		return nil
+	}
+
+	fhr := toFileHandleResult(result)
+	return &fhr
+}
+
+func toFileHandleResult(result task.JobResult) FileHandleResult {
+	var err string
+	if result.Error != nil {
+		err = result.Error.Error()
+	}
+
+	return FileHandleResult{Status: result.Status, Error: err, Handle: result.JobID}
 }

@@ -5,8 +5,8 @@ import "trox.dev/file-converter/internal/convert"
 type Job struct {
 	ID        string
 	FilePath  string
-	Opts      convert.Options
 	Converter convert.Converter
+	Options   convert.Options
 }
 
 type JobStatus string
@@ -24,4 +24,5 @@ type JobResult struct {
 	FilePath string
 	Status   JobStatus
 	Error    error
+	source   convert.MediaType
 }

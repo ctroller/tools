@@ -19,6 +19,18 @@ func (s *StatusStore) Set(id string, r JobResult) {
 	s.data[id] = r
 }
 
+func (s *StatusStore) SetStatus(id string, status JobStatus) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.data[id]
+	if !ok {
+		return
+	}
+
+	r.Status = status
+	s.data[id] = r
+}
+
 func (s *StatusStore) Get(id string) (JobResult, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

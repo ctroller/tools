@@ -31,3 +31,10 @@ func SSEHandler(w http.ResponseWriter, r *http.Request, d time.Duration, handle 
 		}
 	}
 }
+
+func AppendSSE(w http.ResponseWriter, data string) {
+	_, err := w.Write([]byte("data: " + data + "\n\n"))
+	if err != nil {
+		slog.Error("Failed to write SSE data", "err", err)
+	}
+}

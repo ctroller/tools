@@ -37,11 +37,12 @@ func main() {
 
 	app := &Application{
 		Config: readConfig(),
-		Queue:  task.NewQueue(5, 1, task.NewStatusStore()),
 	}
 
 	app.setupRegistry()
+	app.Queue = task.NewQueue(5, 1, task.NewStatusStore(), app.Registry)
 	app.setupHTTP()
+
 	app.Queue.Start(context.Background())
 
 	// graceful shutdown handling
