@@ -62,7 +62,7 @@ func (q *Queue) process(ctx context.Context, job Job) {
 	q.store.SetStatus(job.ID, StatusProcessing)
 
 	slog.Info("processing job", "id", job.ID)
-	err, name := doWork(ctx, job)
+	name, err := doWork(ctx, job)
 	if err != nil {
 		slog.Error("failed to process job", "id", job.ID, "err", err)
 		q.store.Set(job.ID, JobResult{JobID: job.ID, Status: StatusFailed, Error: err})
@@ -150,10 +150,10 @@ func (q *Queue) Shutdown(ctx context.Context) error {
 	}
 }
 
-func doWork(ctx context.Context, job Job) (error, string) {
+func doWork(ctx context.Context, job Job) (string, error) {
 	handle, err := os.Open(job.FilePath)
 	if err != nil {
-		return err, ""
+		return "", err
 	}
 	defer func(handle *os.File) {
 		err := handle.Close()
@@ -164,10 +164,10 @@ func doWork(ctx context.Context, job Job) (error, string) {
 
 	out, err := os.CreateTemp("/tmp", "fq_*")
 	if err != nil {
-		return err, ""
+		return "", err
 	}
 	if out == nil {
-		return errors.New("failed to create temp file"), ""
+		return "", errors.New("failed to create temp file")
 	}
 	defer func(out *os.File) {
 		err := out.Close()
@@ -176,5 +176,5 @@ func doWork(ctx context.Context, job Job) (error, string) {
 		}
 	}(out)
 
-	return job.Converter.Convert(ctx, handle, out, job.Options), out.Name()
+	return out.Name(), job.Converter.Convert(ctx, handle, out, job.Options)
 }
