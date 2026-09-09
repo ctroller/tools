@@ -25,7 +25,6 @@ type Queue struct {
 	registry *convert.Registry
 	workers  int
 	wg       sync.WaitGroup
-	lm       sync.Map
 }
 
 func NewQueue(bufferSize, workers int, store *StatusStore, registry *convert.Registry) *Queue {
@@ -102,26 +101,20 @@ func (q *Queue) Lookup(id string) (JobResult, bool) {
 }
 
 func (q *Queue) StartJob(id string, target convert.MediaType) error {
-	if _, found := q.lm.LoadOrStore(id, true); found {
-		return common.IllegalStateErr{Msg: "job already being started"}
-	}
-	defer q.lm.Delete(id)
-
-	res, found := q.Lookup(id)
+	res, found, swapped := q.store.CompareAndSwapStatus(id, StatusUploaded, StatusPending)
 	if !found {
 		return common.NotFoundErr{Msg: "job " + id + " not found"}
 	}
-
-	if res.Status != StatusUploaded {
+	if !swapped {
 		return common.IllegalStateErr{Msg: "job not ready"}
 	}
 
 	conv, found := q.registry.Lookup(res.source, target)
 	if !found {
+		q.store.SetStatus(id, StatusUploaded)
 		return common.NotFoundErr{Msg: "target converter not found"}
 	}
 
-	q.store.SetStatus(id, StatusPending)
 	job := Job{
 		ID:        id,
 		FilePath:  res.FilePath,
