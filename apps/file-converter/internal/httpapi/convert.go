@@ -22,7 +22,7 @@ func (a *API) Convert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := a.queue.StartJob(handle, target); err != nil {
+	if err := a.intake.StartJob(handle, target); err != nil {
 		var notFoundErr common.NotFoundErr
 		var illegalStateErr common.IllegalStateErr
 		var queueFullErr task.QueueFullErr

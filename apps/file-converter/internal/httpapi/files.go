@@ -81,7 +81,7 @@ func (a *API) Files(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res := a.queue.Prepare(dst.Name(), source)
+	res := a.intake.Prepare(dst.Name(), source)
 
 	RenderJSON(w, Result{Handle: res.JobID, DetectedSource: source, Targets: targets})
 }

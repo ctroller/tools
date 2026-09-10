@@ -27,7 +27,7 @@ func (a *API) FilesHandleStream(w http.ResponseWriter, r *http.Request) (done bo
 		return true
 	}
 
-	result, ok := a.queue.Lookup(handle)
+	result, ok := a.intake.Lookup(handle)
 	if !ok {
 		writeSSEData(w, FileHandleResult{Status: task.StatusFailed, Error: "Job with handle '" + handle + "' not found."})
 		return true

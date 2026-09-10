@@ -44,7 +44,7 @@ func (a *API) lookupHandle(w http.ResponseWriter, r *http.Request) *FileHandleRe
 		return nil
 	}
 
-	result, ok := a.queue.Lookup(handle)
+	result, ok := a.intake.Lookup(handle)
 	if !ok {
 		HttpProblem(w, "", "Not Found", http.StatusNotFound, "Job with handle "+handle+" not found.")
 		return nil
