@@ -129,12 +129,12 @@ func (app *Application) setupHTTP() {
 }
 
 func (app *Application) stop(ctx context.Context) {
-	if err := app.Registry.StopAll(); err != nil {
-		slog.Error("Failed to stop registry", "err", err)
-	}
-
 	if err := app.Queue.Shutdown(ctx); err != nil {
 		slog.Error("Queue did not drain before shutdown deadline", "err", err)
+	}
+
+	if err := app.Registry.StopAll(); err != nil {
+		slog.Error("Failed to stop registry", "err", err)
 	}
 
 	app.FileStore.Stop()
