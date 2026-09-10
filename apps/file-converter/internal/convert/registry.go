@@ -26,8 +26,6 @@ func (r *Registry) Register(c Converter) {
 			}
 		}
 	}
-
-	r.invalidateFormats()
 }
 
 func (r *Registry) Lookup(src, tgt MediaType) (Converter, bool) {
@@ -43,7 +41,7 @@ func (r *Registry) Formats() map[MediaType][]MediaType {
 	return c
 }
 
-func (r *Registry) invalidateFormats() {
+func (r *Registry) makeFormats() {
 	matrix := make(map[MediaType][]MediaType, len(r.owners))
 	for src, targets := range r.owners {
 		for tgt := range targets {
@@ -57,6 +55,8 @@ func (r *Registry) invalidateFormats() {
 }
 
 func (r *Registry) StartAll() error {
+	r.makeFormats()
+
 	var errs []error
 	for _, t := range r.transformers {
 		if lc, ok := t.(Lifecycle); ok {
