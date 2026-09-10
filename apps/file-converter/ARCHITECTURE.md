@@ -2,9 +2,11 @@
 
 ## Status
 
-Converter/Registry layer implemented (`internal/convert`). HTTP layer
-(`/files`, job worker, SSE) not yet built — `cmd/server/main.go`'s mux has
-no routes registered yet.
+Converter/Registry layer (`internal/convert`), HTTP layer (`/formats`,
+`/files`, job worker, SSE) and graceful shutdown are all implemented.
+
+Not yet built: the `download` endpoint, the `Problem` `type`/`title` slug
+table, and the pixel-dimension cap.
 
 Top-level repo contract (repo layout, routing/StripPrefix, dev environment)
 lives in the root `AGENTS.md`; this file covers file-converter's design only.
@@ -42,6 +44,11 @@ type Converter interface {
 }
 ```
 
+A converter can optionally implement `Lifecycle` (`Start`/`Stop`) if it needs
+setup or teardown around the registry's `StartAll`/`StopAll` calls. The
+registry type-asserts for it — it's not part of `Converter` itself.
+`ImageConverter` uses it for `vips.Startup`/`vips.Shutdown`.
+
 Quality (1–100, 0 = format default) isn't in `Options` yet — add it directly
 when actually needed, don't build a generic options schema preemptively.
 
@@ -55,12 +62,13 @@ not just one request — see "Cleanup" below.
 
 **Why `MediaType` is a MIME type, not a bare identifier** ("png"/"webp"/...
 would work but throws away things MIME types give for free): magic-byte
-detection (`http.DetectContentType`, or libvips' own format identification
-as a fallback if stdlib sniffing doesn't cover a given format — check AVIF
-coverage for the target Go version, WEBP has been supported a long time)
-already returns MIME-type strings, so detection output maps straight into
-`MediaType` with no translation table. The `Content-Type` response header is
-the same value, again with no lookup.
+detection already returns MIME-type strings, so detection output maps
+straight into `MediaType` with no translation table. The `Content-Type`
+response header is the same value, again with no lookup.
+
+Detection uses `github.com/gabriel-vasile/mimetype` (magic-byte based),
+not stdlib `http.DetectContentType` — chosen for its wider format coverage,
+including AVIF.
 
 `SupportedFormats()` replaces an earlier `CanHandle(src, tgt)` predicate
 design. Each converter states its full source→targets map directly — e.g.
@@ -86,9 +94,17 @@ switch statement currently duplicate format knowledge independently.
 
 Asynchronous, job-based. Upload, target selection, and result retrieval are
 three separate calls; conversion runs in a background worker pool, not
-inline in a request. No accounts — a random, unguessable `handle`
-(`crypto/rand`-based) is the only thing standing in for auth, so treat it as
-a bearer token: anyone holding it can read status and download the result.
+inline in a request. No accounts — a random, unguessable `handle` is the
+only thing standing in for auth, so treat it as a bearer token: anyone
+holding it can read status and download the result. Currently a v4 UUID
+from Go 1.27's stdlib `uuid` package (`crypto/rand`-backed under the hood),
+generated in `JobIntake.Submit` (`task/intake.go`).
+
+### `GET /formats`
+
+Returns the full `Registry.Formats()` matrix (every known source MediaType
+mapped to its list of reachable target MediaTypes). Not tied to any upload —
+a client can render a static conversion matrix without uploading first.
 
 ### `POST /files`
 
@@ -100,38 +116,52 @@ client's claimed MIME type or file extension — and creates a job record
 `Registry.Formats()[detectedSource]`. Detection happens once, here, against
 the real bytes — no client-side extension guessing needed downstream.
 
-### `POST /files/{handle}/convert?target=<media-type>`
+### `PUT /files/{handle}/convert?target=<media-type>`
 
 `target` is the literal MIME type, e.g. `?target=image/webp` — no slug
 layer, same vocabulary as `Content-Type` and the `/files` response.
 
 Validates `(detectedSource, target)` against the registry. On success, sets
-status `queued`, enqueues the job on the worker pool, returns `202` +
-`{status: "queued"}`. Rejects a second `convert` call while a job for that
-`handle` is already `queued`/`processing` — one active job per handle.
+status `pending`, enqueues the job on the worker pool, and returns `202`
+with a `Location: /files/{handle}` header and no response body. Rejects a
+second `convert` call while a job for that `handle` is already
+`pending`/`processing` — one active job per handle (enforced by a
+compare-and-swap on the job's status from `uploaded` to `pending`).
 
 ### `GET /files/{handle}/events`
 
-SSE stream. Sends the job's current status immediately on connect (so a
-client connecting after processing already finished still gets the right
-state), then pushes each subsequent transition (`processing → done | failed`).
+SSE stream. **Current implementation**: a 1-second ticker polls the job
+record and pushes its current status on every tick, so the first message
+lands after roughly one second, not immediately on connect, and the client
+also receives repeated identical messages between real transitions. The
+stream still closes once status reaches `done`/`failed`. Design intent
+(sending state immediately on connect, only on transition after that) is
+not yet built — revisit if the repeated messages become a problem.
 
 ### `GET /files/{handle}`
 
 Same status data as the SSE stream, as one JSON response. Fallback for a
 client not using SSE; cheap, since the record already exists.
 
-### `GET /files/{handle}/download`
+### `GET /files/{handle}/download` — not yet built
 
-Streams the converted file when status is `done`. Deletes the output file
-after a successful transfer — see "Cleanup".
+Design intent, not current behavior: stream the converted file when status
+is `done`, and delete the output file after a successful transfer — see
+"Cleanup". No route for this exists yet in `router.go`; a job can reach
+`done` with no way to fetch its result over HTTP.
 
 ### Validation & limits
 
 Two independent limits, deliberately living at different layers:
 
-- **Upload size cap: 25MB.** Generic, format-agnostic — enforced via
-  `http.MaxBytesReader` in the HTTP layer, before the body is read.
+- **Upload size cap: 25MB.** Generic, format-agnostic — currently enforced
+  via `r.ParseMultipartForm(25 << 20)` in `Files` (`httpapi/files.go`), not
+  `http.MaxBytesReader`. This is a soft cap: the argument to
+  `ParseMultipartForm` is the in-memory threshold before a part spills to a
+  temp file, not a hard ceiling on total request body size. An oversize
+  request currently surfaces as a generic `400`, indistinguishable from any
+  other multipart parse error — see "Errors" below. Revisit with
+  `http.MaxBytesReader` if a true hard cap and a distinct `413` are needed.
 - **Pixel dimension cap: 12000×12000px.** MediaType-specific — enforced inside
   the libvips transformer via a cheap header peek *before* full decode.
   This exists because file size on disk doesn't bound decoded memory use: a
@@ -145,18 +175,26 @@ format-specific resource limits live inside the transformer** (a PDF
 transformer's equivalent concern would be page count, not pixel dimensions
 — it shouldn't need the HTTP layer to know that).
 
-Concurrent work is capped by the worker pool size (bounded, sized to CPU
-count) rather than by request/response backpressure, since jobs no longer
-run inline in a request. Pool size: not yet decided — see "Open / not yet
-decided".
+Concurrent work is capped by the worker pool rather than by request/response
+backpressure, since jobs no longer run inline in a request.
+**Current implementation**: hardcoded to a queue buffer of 5 and exactly 1
+worker (`task.NewQueue(5, 1, ...)` in `cmd/server/main.go`), not scaled to
+CPU count. Revisit if throughput becomes a bottleneck.
 
 ### Cleanup
 
-Output file deleted right after a successful download. Input file deleted
-once conversion finishes, success or failure. A periodic sweep additionally
-deletes anything past a TTL regardless of status, catching an upload that
-never got a target chosen, or a result never downloaded. TTL value: not yet
-decided.
+**Current implementation**: only the output file is deleted, and only when
+conversion fails (`JobExecutor.Run` in `task/executor.go`). The input file
+is never explicitly deleted after a job finishes, success or failure — it
+relies entirely on the periodic sweep below. A `FileJanitor`
+(`task/filestore.go`) runs every 15 minutes and deletes any file in the
+upload directory older than a 5-minute TTL, regardless of status (both
+values hardcoded in `cmd/server/main.go`). This catches an upload that
+never got a target chosen, a finished job's leftover input file, and (once
+built) a result never downloaded.
+
+Design intent, not yet reachable: delete the output file right after a
+successful download — moot until the `download` endpoint exists.
 
 ### Errors
 
@@ -173,8 +211,11 @@ type Problem struct {
     Status   int    `json:"status"`
     Detail   string `json:"detail,omitempty"`
     Instance string `json:"instance,omitempty"` // reserved — see request-id note below
+    Data     any    `json:"data,omitempty"`
 }
 ```
+
+Design intent — the table below is the target shape:
 
 | Case                                         | Status | `type`                    | `title`                  |
 |-----------------------------------------------|--------|---------------------------|--------------------------|
@@ -186,20 +227,36 @@ type Problem struct {
 | Image dimensions exceed cap                  | 413    | `image-too-large`         | Image too large          |
 | Content doesn't match any known input format | 415    | `unrecognized-format`     | Unrecognized file format |
 
-`type` values are stable slugs, not real dereferenceable URLs — fine per
-spec, no docs site needed for a personal project.
+`type` values are meant to be stable slugs, not real dereferenceable URLs —
+fine per spec, no docs site needed for a personal project.
+
+**Current implementation gap**: none of the `type`/`title` slugs above are
+wired up. Every call to `HttpProblem` passes an empty `type`, which renders
+as `type: "about:blank"`, and titles are generic HTTP reason phrases
+(`"Bad Request"`, `"Not Found"`, `"Conflict"`, `"Unsupported media type"`),
+not the domain-specific titles in the table. Two status codes also differ
+from the table:
+
+- No transformer for `(detected, target)` returns **404**, not 400 — it
+  reuses the same `common.NotFoundErr` path as an unknown `handle`
+  (`task/intake.go`, `httpapi/convert.go`), so the two cases are currently
+  indistinguishable to a client.
+- Upload exceeds size cap returns a generic **400**, not 413 — see
+  "Validation & limits" above.
 
 `instance` is reserved for an **app-generated request ID**, attached by a
-logging middleware. **Not built yet.**
+logging middleware. **Not built yet** — the field is always empty.
 
 **Job-time** (the worker's `Convert` call fails on otherwise-valid input):
 the enqueuing request already returned `202`, so this can't be an HTTP
-error response. Surfaced as status `failed` + an error message on the job
-record, delivered via the SSE stream / `GET /files/{handle}`. Whether that
-error message should reuse the `Problem` shape, for consistency: not yet
-decided.
+error response. Decided: this does **not** reuse the `Problem` shape.
+Surfaced as status `failed` plus a plain error string
+(`JobResult.Error()`), delivered via the SSE stream / `GET /files/{handle}`
+as `FileHandleResult.Error`.
 
-## Response contract (`GET /files/{handle}/download`)
+## Response contract (`GET /files/{handle}/download`) — not yet built
+
+Design intent for when this endpoint is added:
 
 - **Filename**: strip the original filename's extension, append the
   canonical extension for the target format (from the format table). Fall
@@ -233,18 +290,35 @@ why htmx-style server-rendered responses don't fit this API.
 
 Expected flow: drop file → `POST /files` → show target buttons from the
 returned `targets` (accurate, since detection already happened server-side
-against the real bytes) → `POST /files/{handle}/convert?target=...` → open
+against the real bytes) → `PUT /files/{handle}/convert?target=...` → open
 `GET /files/{handle}/events` (SSE) → on `done`, fetch
-`GET /files/{handle}/download`.
+`GET /files/{handle}/download`. The last step is not yet reachable — see
+"Not yet built" above.
 
 ## Open / not yet decided
 
-- Testing approach — not discussed beyond "should exist." No decision on
-  fixture-based table tests per transformer, etc.
-- Logging level/format — not discussed at all beyond the request-ID note
-  above.
+- **Download endpoint** — not built; a job can reach `done` with no way to
+  fetch the result over HTTP.
+- **`Problem` `type`/`title` slugs** — not wired up; every error currently
+  renders `type: "about:blank"` with a generic title.
+- **Two error status codes don't match the design table** — unsupported
+  `(detected, target)` returns 404 instead of 400, and an oversize upload
+  returns 400 instead of 413. Fix the code or update the table, whichever
+  turns out to be the right target behavior.
+- **Upload size cap mechanism** — `ParseMultipartForm`'s argument is a
+  memory threshold, not a hard body-size ceiling. Revisit with
+  `http.MaxBytesReader` for a true 25MB cap.
+- **Input-file cleanup** — no explicit delete after a job finishes; relies
+  entirely on the periodic TTL sweep.
+- **SSE cadence** — ticker-based polling sends repeated identical messages
+  and delays the first message by ~1 second, instead of pushing
+  immediately on connect and only on transitions after that.
+- Testing approach — per-package unit tests exist
+  (`internal/convert/*_test.go`), but no decision on fixture-based table
+  tests per transformer as coverage grows.
+- Logging level/format — `log/slog` is in use throughout, but no
+  conventions are set for levels or structured fields.
 - Request-ID middleware — needed to actually populate `Problem.instance`.
-- Worker pool size.
-- TTL duration for the cleanup sweep.
-- Whether job-time failures should reuse the `Problem` shape.
+- Worker pool sizing — hardcoded to 1 worker / buffer 5, not CPU-scaled.
+- Pixel dimension cap — not built.
 - No liveness/readiness endpoint decided yet, despite deploying to k3s.
