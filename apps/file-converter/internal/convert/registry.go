@@ -21,6 +21,8 @@ func (r *Registry) Register(c Converter) {
 		for _, tgt := range targets {
 			if _, claimed := r.owners[src][tgt]; !claimed {
 				r.owners[src][tgt] = c // first-registered converter to claim (src,tgt) wins
+			} else {
+				slog.Warn("Converter already claimed - will not be used for target mapping", "converter", c.Name(), "src", src, "tgt", tgt)
 			}
 		}
 	}
