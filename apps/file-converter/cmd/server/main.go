@@ -26,23 +26,26 @@ type Config struct {
 }
 
 type Application struct {
-	Config   *Config
-	Registry *convert.Registry
-	Server   *http.Server
-	Queue    *task.Queue
+	Config    *Config
+	Registry  *convert.Registry
+	Server    *http.Server
+	Queue     *task.Queue
+	FileStore *task.FileStore
 }
 
 func main() {
 	slog.Info("Setting up file-converter...")
 
 	app := &Application{
-		Config: readConfig(),
+		Config:    readConfig(),
+		FileStore: task.NewFileStore("upload", 15*time.Minute, 5*time.Minute),
 	}
 
 	app.setupRegistry()
-	app.Queue = task.NewQueue(5, 1, task.NewStatusStore(), app.Registry)
+	app.Queue = task.NewQueue(5, 1, app.FileStore, app.Registry)
 	app.setupHTTP()
 
+	app.FileStore.Start()
 	app.Queue.Start(context.Background())
 
 	// graceful shutdown handling
@@ -117,7 +120,7 @@ func (app *Application) setupRegistry() {
 func (app *Application) setupHTTP() {
 	app.Server = &http.Server{
 		Addr:              app.Config.HTTP.Address + ":" + strconv.Itoa(app.Config.HTTP.Port),
-		Handler:           httpapi.NewRouter(app.Registry, app.Queue),
+		Handler:           httpapi.NewRouter(app.Registry, app.Queue, app.FileStore),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -133,4 +136,6 @@ func (app *Application) stop(ctx context.Context) {
 	if err := app.Queue.Shutdown(ctx); err != nil {
 		slog.Error("Queue did not drain before shutdown deadline", "err", err)
 	}
+
+	app.FileStore.Stop()
 }

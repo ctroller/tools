@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"mime/multipart"
 	"net/http"
-	"os"
+	"uuid"
 
 	"github.com/gabriel-vasile/mimetype"
 	"trox.dev/file-converter/internal/convert"
@@ -63,7 +63,7 @@ func (a *API) Files(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dst, err := createDest()
+	dst, err := a.fileStore.Create(uuid.New().String() + "_" + handle.Filename)
 	if err != nil {
 		HttpProblemISE(w, "Failed to create file", err)
 		return
@@ -77,22 +77,11 @@ func (a *API) Files(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := dst.ReadFrom(file); err != nil {
 		HttpProblemISE(w, "Failed to copy file", err)
-		err := os.Remove(dst.Name())
-		if err != nil {
-			slog.Error("Failed to remove file", "err", err)
-		}
+		a.fileStore.Delete(dst.Name())
 		return
 	}
 
 	res := a.queue.Prepare(dst.Name(), source)
 
 	RenderJSON(w, Result{Handle: res.JobID, DetectedSource: source, Targets: targets})
-}
-
-func createDest() (*os.File, error) {
-	if err := os.MkdirAll("uploads", 0755); err != nil {
-		return nil, err
-	}
-
-	return os.CreateTemp("uploads", "uploaded-*")
 }

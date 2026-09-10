@@ -2,7 +2,6 @@ package task
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"os"
 	"sync"
@@ -20,19 +19,21 @@ func (e QueueFullErr) Error() string {
 }
 
 type Queue struct {
-	jobs     chan Job
-	store    *StatusStore
-	registry *convert.Registry
-	workers  int
-	wg       sync.WaitGroup
+	jobs      chan Job
+	store     *StatusStore
+	fileStore *FileStore
+	registry  *convert.Registry
+	workers   int
+	wg        sync.WaitGroup
 }
 
-func NewQueue(bufferSize, workers int, store *StatusStore, registry *convert.Registry) *Queue {
+func NewQueue(bufferSize, workers int, fileStore *FileStore, registry *convert.Registry) *Queue {
 	return &Queue{
-		jobs:     make(chan Job, bufferSize),
-		store:    store,
-		registry: registry,
-		workers:  workers,
+		jobs:      make(chan Job, bufferSize),
+		store:     NewStatusStore(),
+		fileStore: fileStore,
+		registry:  registry,
+		workers:   workers,
 	}
 }
 
@@ -62,7 +63,7 @@ func (q *Queue) process(ctx context.Context, job Job) {
 	q.store.SetStatus(job.ID, StatusProcessing)
 
 	slog.Info("processing job", "id", job.ID)
-	name, err := doWork(ctx, job)
+	name, err := q.doWork(ctx, job)
 	if err != nil {
 		slog.Error("failed to process job", "id", job.ID, "err", err)
 		q.store.Set(job.ID, JobResult{JobID: job.ID, Status: StatusFailed, Error: err})
@@ -150,7 +151,7 @@ func (q *Queue) Shutdown(ctx context.Context) error {
 	}
 }
 
-func doWork(ctx context.Context, job Job) (string, error) {
+func (q *Queue) doWork(ctx context.Context, job Job) (string, error) {
 	handle, err := os.Open(job.FilePath)
 	if err != nil {
 		return "", err
@@ -162,19 +163,17 @@ func doWork(ctx context.Context, job Job) (string, error) {
 		}
 	}(handle)
 
-	out, err := os.CreateTemp("/tmp", "fq_*")
-	if err != nil {
-		return "", err
-	}
-	if out == nil {
-		return "", errors.New("failed to create temp file")
-	}
+	out, err := q.fileStore.Create(job.ID)
 	defer func(out *os.File) {
 		err := out.Close()
 		if err != nil {
 			slog.Warn("failed to close file", "err", err)
 		}
 	}(out)
+
+	if err != nil {
+		return "", err
+	}
 
 	return out.Name(), job.Converter.Convert(ctx, handle, out, job.Options)
 }
