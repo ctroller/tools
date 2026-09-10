@@ -1,19 +1,14 @@
 package task
 
 import (
-	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
-	"slices"
-	"sync"
 	"time"
 )
 
 type FileStore struct {
-	path  string
-	files []string
-	rw    sync.RWMutex
+	path string
 }
 
 type FileJanitor struct {
@@ -24,24 +19,8 @@ type FileJanitor struct {
 }
 
 func NewFileStore(path string) *FileStore {
-	// preload dir contents
-	entries, err := os.ReadDir(path)
-	files := make([]string, 0, len(entries))
-	if err != nil {
-		slog.Warn("failed to read directory", "dir", path, "err", err)
-	} else {
-		for _, file := range entries {
-			if file.IsDir() {
-				continue
-			}
-
-			files = append(files, filepath.Join(path, filepath.Base(file.Name())))
-		}
-	}
-
 	return &FileStore{
-		path:  path,
-		files: files,
+		path: path,
 	}
 }
 
@@ -67,10 +46,6 @@ func (fs *FileStore) Create(filename string) (*os.File, error) {
 		return nil, err
 	}
 
-	fs.rw.Lock()
-	defer fs.rw.Unlock()
-	fs.files = append(fs.files, name)
-
 	return file, nil
 }
 
@@ -78,24 +53,6 @@ func (fs *FileStore) Delete(name string) {
 	if err := os.Remove(filepath.Join(fs.path, filepath.Base(name))); err != nil {
 		slog.Warn("failed to remove file", "file", name, "err", err)
 	}
-
-	fs.untrack(name)
-}
-
-// untrack removes name from fs.files, taking fs.rw itself. Callers must not
-// already hold fs.rw.
-func (fs *FileStore) untrack(name string) {
-	fs.rw.Lock()
-	defer fs.rw.Unlock()
-	if i := slices.Index(fs.files, name); i >= 0 {
-		fs.files = slices.Delete(fs.files, i, i+1)
-	}
-}
-
-func (fs *FileStore) Snapshot() []string {
-	fs.rw.RLock()
-	defer fs.rw.RUnlock()
-	return slices.Clone(fs.files)
 }
 
 func (fj *FileJanitor) Start() {
@@ -112,36 +69,25 @@ func (fj *FileJanitor) Stop() {
 }
 
 func (fj *FileJanitor) cleanup() {
-	for _, name := range fj.store.Snapshot() {
-		func() {
-			file, err := os.Open(name)
-			defer func(file *os.File) {
-				err := file.Close()
+	entries, err := os.ReadDir(fj.store.path)
+	if err != nil {
+		slog.Warn("failed to read directory", "dir", fj.store.path, "err", err)
+		return
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			func() {
+				stat, err := entry.Info()
 				if err != nil {
-					slog.Warn("failed to close file", "file", name, "err", err)
-				}
-			}(file)
-
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					fj.store.untrack(name)
-				} else {
-					slog.Error("failed to open file", "file", name, "err", err)
+					slog.Warn("failed to get file stat", "file", entry.Name(), "err", err)
+					return
 				}
 
-				return
-			}
-
-			stat, err := file.Stat()
-			if err != nil {
-				slog.Warn("failed to get file stat", "file", name, "err", err)
-				return
-			}
-
-			if time.Since(stat.ModTime()) > fj.fileTTL {
-				slog.Info("file expired", "file", name)
-				fj.store.Delete(name)
-			}
-		}()
+				if time.Since(stat.ModTime()) > fj.fileTTL {
+					slog.Info("file expired", "file", entry.Name())
+					fj.store.Delete(entry.Name())
+				}
+			}()
+		}
 	}
 }
