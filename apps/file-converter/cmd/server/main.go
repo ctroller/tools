@@ -32,15 +32,18 @@ type Application struct {
 	JQueue    *task.Queue
 	JExecutor *task.JobExecutor
 	JIntake   *task.JobIntake
-	FileStore *task.FileStore
+	FStore    *task.FileStore
+	FJanitor  *task.FileJanitor
 }
 
 func main() {
 	slog.Info("Setting up file-converter...")
 
+	fileStore := task.NewFileStore("upload")
 	app := &Application{
-		Config:    readConfig(),
-		FileStore: task.NewFileStore("upload", 15*time.Minute, 5*time.Minute),
+		Config:   readConfig(),
+		FStore:   fileStore,
+		FJanitor: task.NewFileJanitor(fileStore, 15*time.Minute, 5*time.Minute),
 	}
 
 	if err := app.setupRegistry(); err != nil {
@@ -48,14 +51,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	app.JExecutor = task.NewJobExecutor(app.FileStore)
-	store := task.NewStatusStore()
-	app.JQueue = task.NewQueue(5, 1, app.JExecutor, store)
-	app.JIntake = task.NewJobIntake(app.Registry, app.JQueue, store, app.FileStore)
+	app.JExecutor = task.NewJobExecutor(app.FStore)
+	statusStore := task.NewStatusStore()
+	app.JQueue = task.NewQueue(5, 1, app.JExecutor, statusStore)
+	app.JIntake = task.NewJobIntake(app.Registry, app.JQueue, statusStore, app.FStore)
 
 	app.setupHTTP()
 
-	app.FileStore.Start()
+	app.FJanitor.Start()
 	app.JQueue.Start(context.Background())
 
 	// graceful shutdown handling
@@ -147,5 +150,5 @@ func (app *Application) stop(ctx context.Context) {
 		slog.Error("Failed to stop registry", "err", err)
 	}
 
-	app.FileStore.Stop()
+	app.FJanitor.Stop()
 }

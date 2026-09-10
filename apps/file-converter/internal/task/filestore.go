@@ -11,47 +11,30 @@ import (
 )
 
 type FileStore struct {
-	path            string
-	cleanupInterval time.Duration
-	fileTTL         time.Duration
-	files           []string
-	cleanupTicker   *time.Ticker
-	rw              sync.RWMutex
+	path  string
+	files []string
+	rw    sync.RWMutex
 }
 
-func NewFileStore(path string, cleanupInterval, fileTTL time.Duration) *FileStore {
+type FileJanitor struct {
+	store           *FileStore
+	cleanupInterval time.Duration
+	fileTTL         time.Duration
+	cleanupTicker   *time.Ticker
+}
+
+func NewFileStore(path string) *FileStore {
 	return &FileStore{
-		path:            path,
+		path: path,
+	}
+}
+
+func NewFileJanitor(store *FileStore, cleanupInterval, fileTTL time.Duration) *FileJanitor {
+	return &FileJanitor{
+		store:           store,
 		cleanupInterval: cleanupInterval,
 		fileTTL:         fileTTL,
 	}
-}
-
-func (fs *FileStore) Start() {
-	// preload dir contents
-	entries, err := os.ReadDir(fs.path)
-	if err != nil {
-		slog.Warn("failed to read directory", "dir", fs.path, "err", err)
-	} else {
-		for _, file := range entries {
-			if file.IsDir() {
-				continue
-			}
-
-			fs.files = append(fs.files, filepath.Join(fs.path, filepath.Base(file.Name())))
-		}
-	}
-
-	fs.cleanupTicker = time.NewTicker(fs.cleanupInterval)
-	go func() {
-		for range fs.cleanupTicker.C {
-			fs.cleanup()
-		}
-	}()
-}
-
-func (fs *FileStore) Stop() {
-	fs.cleanupTicker.Stop()
 }
 
 func (fs *FileStore) Create(filename string) (*os.File, error) {
@@ -93,12 +76,41 @@ func (fs *FileStore) untrack(name string) {
 	}
 }
 
-func (fs *FileStore) cleanup() {
+func (fs *FileStore) Snapshot() []string {
 	fs.rw.RLock()
-	names := slices.Clone(fs.files)
-	fs.rw.RUnlock()
+	defer fs.rw.RUnlock()
+	return slices.Clone(fs.files)
+}
 
-	for _, name := range names {
+func (fj *FileJanitor) Start() {
+	// preload dir contents
+	entries, err := os.ReadDir(fj.store.path)
+	if err != nil {
+		slog.Warn("failed to read directory", "dir", fj.store.path, "err", err)
+	} else {
+		for _, file := range entries {
+			if file.IsDir() {
+				continue
+			}
+
+			fj.store.files = append(fj.store.files, filepath.Join(fj.store.path, filepath.Base(file.Name())))
+		}
+	}
+
+	fj.cleanupTicker = time.NewTicker(fj.cleanupInterval)
+	go func() {
+		for range fj.cleanupTicker.C {
+			fj.cleanup()
+		}
+	}()
+}
+
+func (fj *FileJanitor) Stop() {
+	fj.cleanupTicker.Stop()
+}
+
+func (fj *FileJanitor) cleanup() {
+	for _, name := range fj.store.Snapshot() {
 		func() {
 			file, err := os.Open(name)
 			defer func(file *os.File) {
@@ -110,7 +122,7 @@ func (fs *FileStore) cleanup() {
 
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
-					fs.untrack(name)
+					fj.store.untrack(name)
 				} else {
 					slog.Error("failed to open file", "file", name, "err", err)
 				}
@@ -124,9 +136,9 @@ func (fs *FileStore) cleanup() {
 				return
 			}
 
-			if time.Since(stat.ModTime()) > fs.fileTTL {
+			if time.Since(stat.ModTime()) > fj.fileTTL {
 				slog.Info("file expired", "file", name)
-				fs.Delete(name)
+				fj.store.Delete(name)
 			}
 		}()
 	}
