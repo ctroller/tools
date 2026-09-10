@@ -24,8 +24,24 @@ type FileJanitor struct {
 }
 
 func NewFileStore(path string) *FileStore {
+	// preload dir contents
+	entries, err := os.ReadDir(path)
+	files := make([]string, 0, len(entries))
+	if err != nil {
+		slog.Warn("failed to read directory", "dir", path, "err", err)
+	} else {
+		for _, file := range entries {
+			if file.IsDir() {
+				continue
+			}
+
+			files = append(files, filepath.Join(path, filepath.Base(file.Name())))
+		}
+	}
+
 	return &FileStore{
-		path: path,
+		path:  path,
+		files: files,
 	}
 }
 
@@ -83,20 +99,6 @@ func (fs *FileStore) Snapshot() []string {
 }
 
 func (fj *FileJanitor) Start() {
-	// preload dir contents
-	entries, err := os.ReadDir(fj.store.path)
-	if err != nil {
-		slog.Warn("failed to read directory", "dir", fj.store.path, "err", err)
-	} else {
-		for _, file := range entries {
-			if file.IsDir() {
-				continue
-			}
-
-			fj.store.files = append(fj.store.files, filepath.Join(fj.store.path, filepath.Base(file.Name())))
-		}
-	}
-
 	fj.cleanupTicker = time.NewTicker(fj.cleanupInterval)
 	go func() {
 		for range fj.cleanupTicker.C {
