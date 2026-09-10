@@ -85,7 +85,7 @@ func (r *Registry) StopAll() error {
 }
 
 func (r *Registry) List() []Converter {
-	return r.transformers
+	return slices.Clone(r.transformers)
 }
 
 func NewRegistry() *Registry {
