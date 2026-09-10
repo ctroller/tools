@@ -35,7 +35,7 @@ func (a *API) FilesHandleStream(w http.ResponseWriter, r *http.Request) (done bo
 
 	writeSSEData(w, toFileHandleResult(result))
 
-	return result.Status == task.StatusDone || result.Status == task.StatusFailed
+	return result.Status.Done()
 }
 
 func writeSSEData(w http.ResponseWriter, v any) {
