@@ -9,7 +9,6 @@ import (
 type Registry struct {
 	transformers []Converter
 	owners       map[MediaType]map[MediaType]Converter
-	fmMatrix     map[MediaType][]MediaType
 }
 
 func (r *Registry) Register(c Converter) {
@@ -34,29 +33,21 @@ func (r *Registry) Lookup(src, tgt MediaType) (Converter, bool) {
 }
 
 func (r *Registry) Formats() map[MediaType][]MediaType {
-	c := make(map[MediaType][]MediaType, len(r.fmMatrix))
-	for src, targets := range r.fmMatrix {
-		c[src] = slices.Clone(targets)
-	}
-	return c
-}
-
-func (r *Registry) makeFormats() {
 	matrix := make(map[MediaType][]MediaType, len(r.owners))
 	for src, targets := range r.owners {
+		list := make([]MediaType, 0, len(targets))
 		for tgt := range targets {
-			matrix[src] = append(matrix[src], tgt)
+			list = append(list, tgt)
 		}
 
-		slices.Sort(matrix[src])
+		slices.Sort(list)
+		matrix[src] = list
 	}
 
-	r.fmMatrix = matrix
+	return matrix
 }
 
 func (r *Registry) StartAll() error {
-	r.makeFormats()
-
 	var errs []error
 	for _, t := range r.transformers {
 		if lc, ok := t.(Lifecycle); ok {
