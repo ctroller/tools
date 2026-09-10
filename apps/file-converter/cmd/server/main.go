@@ -41,7 +41,11 @@ func main() {
 		FileStore: task.NewFileStore("upload", 15*time.Minute, 5*time.Minute),
 	}
 
-	app.setupRegistry()
+	if err := app.setupRegistry(); err != nil {
+		slog.Error("Failed to setup converter registry.", "err", err)
+		os.Exit(1)
+	}
+
 	app.Queue = task.NewQueue(5, 1, app.FileStore, app.Registry)
 	app.setupHTTP()
 
@@ -99,14 +103,13 @@ func readConfig() *Config {
 	return cfg
 }
 
-func (app *Application) setupRegistry() {
+func (app *Application) setupRegistry() error {
 	slog.Info("Setting up converter registry...")
 	app.Registry = convert.NewRegistry()
 	app.Registry.Register(convert.NewImageConverter())
 
 	if err := app.Registry.StartAll(); err != nil {
-		slog.Error("Failed to start converter registry.", "err", err)
-		os.Exit(1)
+		return err
 	}
 
 	var convNames []string
@@ -115,6 +118,7 @@ func (app *Application) setupRegistry() {
 	}
 
 	slog.Info("Converter registry setup successful.", "converters", convNames)
+	return nil
 }
 
 func (app *Application) setupHTTP() {
