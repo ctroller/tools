@@ -32,6 +32,11 @@ func (r *Registry) Lookup(src, tgt MediaType) (Converter, bool) {
 	return conv, ok
 }
 
+func (r *Registry) Supports(src MediaType) ([]MediaType, bool) {
+	t, ok := r.Formats()[src]
+	return t, ok
+}
+
 func (r *Registry) Formats() map[MediaType][]MediaType {
 	matrix := make(map[MediaType][]MediaType, len(r.owners))
 	for src, targets := range r.owners {

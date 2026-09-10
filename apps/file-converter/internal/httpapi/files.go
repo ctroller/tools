@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"mime/multipart"
 	"net/http"
-	"uuid"
 
 	"github.com/gabriel-vasile/mimetype"
 	"trox.dev/file-converter/internal/convert"
@@ -56,32 +55,17 @@ func (a *API) Files(w http.ResponseWriter, r *http.Request) {
 	}
 
 	source := convert.MediaType(mtype.String())
-	targets, found := a.registry.Formats()[source]
-
+	targets, found := a.registry.Supports(source)
 	if !found {
 		HttpProblem(w, "", "Unsupported media type", http.StatusUnsupportedMediaType, "The uploaded file "+handle.Filename+" has an unsupported media type ("+mtype.String()+")")
 		return
 	}
 
-	dst, err := a.fileStore.Create(uuid.New().String() + "_" + handle.Filename)
+	res, err := a.intake.Submit(file, source)
 	if err != nil {
-		HttpProblemISE(w, "Failed to create file", err)
+		HttpProblemISE(w, "Failed to submit file", err)
 		return
 	}
-	defer func(dst multipart.File) {
-		err := dst.Close()
-		if err != nil {
-			slog.Error("Failed to close file", "err", err)
-		}
-	}(dst)
-
-	if _, err := dst.ReadFrom(file); err != nil {
-		HttpProblemISE(w, "Failed to copy file", err)
-		a.fileStore.Delete(dst.Name())
-		return
-	}
-
-	res := a.intake.Prepare(dst.Name(), source)
 
 	RenderJSON(w, Result{Handle: res.JobID, DetectedSource: source, Targets: targets})
 }

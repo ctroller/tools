@@ -9,13 +9,12 @@ import (
 )
 
 type API struct {
-	registry  *convert.Registry
-	intake    *task.JobIntake
-	fileStore *task.FileStore
+	registry *convert.Registry
+	intake   *task.JobIntake
 }
 
-func NewRouter(r *convert.Registry, i *task.JobIntake, fs *task.FileStore) http.Handler {
-	api := &API{registry: r, intake: i, fileStore: fs}
+func NewRouter(r *convert.Registry, i *task.JobIntake) http.Handler {
+	api := &API{registry: r, intake: i}
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /formats", api.Formats)

@@ -51,7 +51,7 @@ func main() {
 	app.JExecutor = task.NewJobExecutor(app.FileStore)
 	store := task.NewStatusStore()
 	app.JQueue = task.NewQueue(5, 1, app.JExecutor, store)
-	app.JIntake = task.NewJobIntake(app.Registry, app.JQueue, store)
+	app.JIntake = task.NewJobIntake(app.Registry, app.JQueue, store, app.FileStore)
 
 	app.setupHTTP()
 
@@ -130,7 +130,7 @@ func (app *Application) setupRegistry() error {
 func (app *Application) setupHTTP() {
 	app.Server = &http.Server{
 		Addr:              app.Config.HTTP.Address + ":" + strconv.Itoa(app.Config.HTTP.Port),
-		Handler:           httpapi.NewRouter(app.Registry, app.JIntake, app.FileStore),
+		Handler:           httpapi.NewRouter(app.Registry, app.JIntake),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,

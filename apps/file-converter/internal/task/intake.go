@@ -1,6 +1,9 @@
 package task
 
 import (
+	"io"
+	"log/slog"
+	"mime/multipart"
 	"uuid"
 
 	"trox.dev/file-converter/internal/common"
@@ -8,24 +11,19 @@ import (
 )
 
 type JobIntake struct {
-	store    *StatusStore
-	registry *convert.Registry
-	queue    *Queue
+	store     *StatusStore
+	registry  *convert.Registry
+	queue     *Queue
+	fileStore *FileStore
 }
 
-func NewJobIntake(registry *convert.Registry, queue *Queue, store *StatusStore) *JobIntake {
+func NewJobIntake(registry *convert.Registry, queue *Queue, store *StatusStore, fileStore *FileStore) *JobIntake {
 	return &JobIntake{
-		store, registry, queue,
+		store, registry, queue, fileStore,
 	}
 }
 
-func (intake *JobIntake) Prepare(path string, src convert.MediaType) JobResult {
-	id := uuid.New().String()
-	for _, found := intake.store.Get(id); found; {
-		id = uuid.New().String()
-		_, found = intake.store.Get(id)
-	}
-
+func (intake *JobIntake) prepare(path, id string, src convert.MediaType) JobResult {
 	result := JobResult{
 		JobID:    id,
 		Status:   StatusUploaded,
@@ -35,6 +33,34 @@ func (intake *JobIntake) Prepare(path string, src convert.MediaType) JobResult {
 	intake.store.Set(id, result)
 
 	return result
+}
+
+func (intake *JobIntake) Submit(reader io.Reader, source convert.MediaType) (JobResult, error) {
+	id := uuid.New().String()
+	for _, found := intake.store.Get(id); found; {
+		id = uuid.New().String()
+		_, found = intake.store.Get(id)
+	}
+
+	filename := id + ".tmp"
+
+	dst, err := intake.fileStore.Create(filename)
+	if err != nil {
+		return JobResult{}, err
+	}
+	defer func(dst multipart.File) {
+		err := dst.Close()
+		if err != nil {
+			slog.Error("Failed to close file", "err", err)
+		}
+	}(dst)
+
+	if _, err := dst.ReadFrom(reader); err != nil {
+		intake.fileStore.Delete(filename)
+		return JobResult{}, err
+	}
+
+	return intake.prepare(dst.Name(), id, source), nil
 }
 
 func (intake *JobIntake) StartJob(id string, target convert.MediaType) error {
