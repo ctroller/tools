@@ -55,10 +55,5 @@ func (a *API) lookupHandle(w http.ResponseWriter, r *http.Request) *FileHandleRe
 }
 
 func toFileHandleResult(result task.JobResult) FileHandleResult {
-	var err string
-	if result.Error != nil {
-		err = result.Error.Error()
-	}
-
-	return FileHandleResult{Status: result.Status, Error: err, Handle: result.JobID}
+	return FileHandleResult{Status: result.Status, Error: result.Error(), Handle: result.JobID}
 }

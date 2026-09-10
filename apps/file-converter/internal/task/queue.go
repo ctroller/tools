@@ -66,7 +66,7 @@ func (q *Queue) process(ctx context.Context, job Job) {
 	name, err := q.doWork(ctx, job)
 	if err != nil {
 		slog.Error("failed to process job", "id", job.ID, "err", err)
-		q.store.Set(job.ID, JobResult{JobID: job.ID, Status: StatusFailed, Error: err})
+		q.store.Set(job.ID, JobResult{JobID: job.ID, Status: StatusFailed, Err: err})
 		if name != "" {
 			if err := os.Remove(name); err != nil {
 				slog.Warn("failed to remove file", "err", err)

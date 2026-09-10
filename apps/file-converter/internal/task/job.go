@@ -33,6 +33,13 @@ type JobResult struct {
 	JobID    string
 	FilePath string
 	Status   JobStatus
-	Error    error
+	Err      error
 	source   convert.MediaType
+}
+
+func (r JobResult) Error() string {
+	if r.Err != nil {
+		return r.Err.Error()
+	}
+	return ""
 }
