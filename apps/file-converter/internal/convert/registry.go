@@ -9,6 +9,7 @@ import (
 type Registry struct {
 	transformers []Converter
 	owners       map[MediaType]map[MediaType]Converter
+	fmMatrix     map[MediaType][]MediaType
 }
 
 func (r *Registry) Register(c Converter) {
@@ -23,6 +24,8 @@ func (r *Registry) Register(c Converter) {
 			}
 		}
 	}
+
+	r.invalidateFormats()
 }
 
 func (r *Registry) Lookup(src, tgt MediaType) (Converter, bool) {
@@ -30,12 +33,15 @@ func (r *Registry) Lookup(src, tgt MediaType) (Converter, bool) {
 	return conv, ok
 }
 
-// Formats is derived from owners, not from re-walking transformers directly.
-// Doing the latter previously aliased a converter's own cached SupportedFormats
-// slice and appended into it across converters, corrupting that converter's
-// state; deriving from owners also guarantees this never advertises a pair
-// that Lookup wouldn't actually honor.
 func (r *Registry) Formats() map[MediaType][]MediaType {
+	c := make(map[MediaType][]MediaType, len(r.fmMatrix))
+	for src, targets := range r.fmMatrix {
+		c[src] = slices.Clone(targets)
+	}
+	return c
+}
+
+func (r *Registry) invalidateFormats() {
 	matrix := make(map[MediaType][]MediaType, len(r.owners))
 	for src, targets := range r.owners {
 		for tgt := range targets {
@@ -45,7 +51,7 @@ func (r *Registry) Formats() map[MediaType][]MediaType {
 		slices.Sort(matrix[src])
 	}
 
-	return matrix
+	r.fmMatrix = matrix
 }
 
 func (r *Registry) StartAll() error {
