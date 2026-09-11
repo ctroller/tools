@@ -1,4 +1,4 @@
-<footer class="crate-footer container-fluid">
+<footer class="crate-footer container-fluid" id="footer">
 	<small>&copy; {new Date().getFullYear()} Christian Troller</small>
 </footer>
 
