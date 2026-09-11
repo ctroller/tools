@@ -2,7 +2,10 @@ module trox.dev/file-converter
 
 go 1.27
 
-require github.com/davidbyttow/govips/v2 v2.18.0
+require (
+	github.com/davidbyttow/govips/v2 v2.18.0
+	github.com/gabriel-vasile/mimetype v1.4.15
+)
 
 require (
 	golang.org/x/image v0.45.0 // indirect

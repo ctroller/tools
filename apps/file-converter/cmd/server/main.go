@@ -26,23 +26,40 @@ type Config struct {
 }
 
 type Application struct {
-	Config   *Config
-	Registry *convert.Registry
-	Server   *http.Server
-	Queue    *task.Queue
+	Config    *Config
+	Registry  *convert.Registry
+	Server    *http.Server
+	JQueue    *task.Queue
+	JExecutor *task.JobExecutor
+	JIntake   *task.JobIntake
+	FStore    *task.FileStore
+	FJanitor  *task.FileJanitor
 }
 
 func main() {
 	slog.Info("Setting up file-converter...")
 
+	fileStore := task.NewFileStore("upload")
 	app := &Application{
-		Config: readConfig(),
-		Queue:  task.NewQueue(5, 1, task.NewStatusStore()),
+		Config:   readConfig(),
+		FStore:   fileStore,
+		FJanitor: task.NewFileJanitor(fileStore, 15*time.Minute, 5*time.Minute),
 	}
 
-	app.setupRegistry()
+	if err := app.setupRegistry(); err != nil {
+		slog.Error("Failed to setup converter registry.", "err", err)
+		os.Exit(1)
+	}
+
+	app.JExecutor = task.NewJobExecutor(app.FStore)
+	statusStore := task.NewStatusStore()
+	app.JQueue = task.NewQueue(5, 1, app.JExecutor, statusStore)
+	app.JIntake = task.NewJobIntake(app.Registry, app.JQueue, statusStore, app.FStore)
+
 	app.setupHTTP()
-	app.Queue.Start(context.Background())
+
+	app.FJanitor.Start()
+	app.JQueue.Start(context.Background())
 
 	// graceful shutdown handling
 	ctx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -95,14 +112,13 @@ func readConfig() *Config {
 	return cfg
 }
 
-func (app *Application) setupRegistry() {
+func (app *Application) setupRegistry() error {
 	slog.Info("Setting up converter registry...")
 	app.Registry = convert.NewRegistry()
 	app.Registry.Register(convert.NewImageConverter())
 
 	if err := app.Registry.StartAll(); err != nil {
-		slog.Error("Failed to start converter registry.", "err", err)
-		os.Exit(1)
+		return err
 	}
 
 	var convNames []string
@@ -111,12 +127,13 @@ func (app *Application) setupRegistry() {
 	}
 
 	slog.Info("Converter registry setup successful.", "converters", convNames)
+	return nil
 }
 
 func (app *Application) setupHTTP() {
 	app.Server = &http.Server{
 		Addr:              app.Config.HTTP.Address + ":" + strconv.Itoa(app.Config.HTTP.Port),
-		Handler:           httpapi.NewRouter(app.Registry),
+		Handler:           httpapi.NewRouter(app.Registry, app.JIntake),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -125,11 +142,13 @@ func (app *Application) setupHTTP() {
 }
 
 func (app *Application) stop(ctx context.Context) {
+	if err := app.JQueue.Shutdown(ctx); err != nil {
+		slog.Error("Queue did not drain before shutdown deadline", "err", err)
+	}
+
 	if err := app.Registry.StopAll(); err != nil {
 		slog.Error("Failed to stop registry", "err", err)
 	}
 
-	if err := app.Queue.Shutdown(ctx); err != nil {
-		slog.Error("Queue did not drain before shutdown deadline", "err", err)
-	}
+	app.FJanitor.Stop()
 }

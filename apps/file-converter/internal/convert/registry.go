@@ -20,6 +20,8 @@ func (r *Registry) Register(c Converter) {
 		for _, tgt := range targets {
 			if _, claimed := r.owners[src][tgt]; !claimed {
 				r.owners[src][tgt] = c // first-registered converter to claim (src,tgt) wins
+			} else {
+				slog.Warn("Converter already claimed - will not be used for target mapping", "converter", c.Name(), "src", src, "tgt", tgt)
 			}
 		}
 	}
@@ -30,19 +32,21 @@ func (r *Registry) Lookup(src, tgt MediaType) (Converter, bool) {
 	return conv, ok
 }
 
-// Formats is derived from owners, not from re-walking transformers directly.
-// Doing the latter previously aliased a converter's own cached SupportedFormats
-// slice and appended into it across converters, corrupting that converter's
-// state; deriving from owners also guarantees this never advertises a pair
-// that Lookup wouldn't actually honor.
+func (r *Registry) Supports(src MediaType) ([]MediaType, bool) {
+	t, ok := r.Formats()[src]
+	return t, ok
+}
+
 func (r *Registry) Formats() map[MediaType][]MediaType {
 	matrix := make(map[MediaType][]MediaType, len(r.owners))
 	for src, targets := range r.owners {
+		list := make([]MediaType, 0, len(targets))
 		for tgt := range targets {
-			matrix[src] = append(matrix[src], tgt)
+			list = append(list, tgt)
 		}
 
-		slices.Sort(matrix[src])
+		slices.Sort(list)
+		matrix[src] = list
 	}
 
 	return matrix
@@ -77,7 +81,7 @@ func (r *Registry) StopAll() error {
 }
 
 func (r *Registry) List() []Converter {
-	return r.transformers
+	return slices.Clone(r.transformers)
 }
 
 func NewRegistry() *Registry {
