@@ -1,0 +1,23 @@
+services:
+  file-converter:
+    build:
+      context: ./apps/file-converter
+      target: dev
+    volumes:
+      - ./apps/file-converter:/app
+    ports:
+      - "8080:8080"
+      - "2345:2345"
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      target: dev
+    volumes:
+      - ./apps/frontend:/app
+    ports:
+      - "3000:3000"
+    environment:
+      FC_PROXY_TARGET: http://file-converter:8080
+    depends_on:
+      - file-converter

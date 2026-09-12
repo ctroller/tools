@@ -2,19 +2,20 @@
 
 ## Status
 
-Design agreed, not yet implemented. `compose-workspace.yaml` exists but is
+Design agreed, not yet implemented. `docker-compose.yaml` exists but is
 empty. `mise.toml` does not exist yet. No tool's Dockerfile has a `dev` stage
 yet.
 
 ## Context
 
 `AGENTS.md` and `NOTES.md` originally locked "Option A: workspace devcontainer
+
 + Docker Compose" — one devcontainer holding the editing toolchains, attached
-to by VS Code, with tool services as Compose siblings. That plan was reopened
-once the actual editor setup came up: VS Code runs on Windows, attaching to a
-repo checkout inside WSL2. WSL2 already is a real Linux kernel, so a
-devcontainer around the toolchain added an editor-attach hop on top of a
-problem WSL2 had already solved — no remaining reason to keep it.
+  to by VS Code, with tool services as Compose siblings. That plan was reopened
+  once the actual editor setup came up: VS Code runs on Windows, attaching to a
+  repo checkout inside WSL2. WSL2 already is a real Linux kernel, so a
+  devcontainer around the toolchain added an editor-attach hop on top of a
+  problem WSL2 had already solved — no remaining reason to keep it.
 
 That produced an interim decision: install the toolchain directly into WSL,
 version-pinned per-project with **mise**, Docker Compose kept only for
@@ -41,12 +42,14 @@ stays correct and is not superseded.
 ### Split of responsibilities: running process vs. editor tooling
 
 Two different consumers of a tool's toolchain, two different homes:
+
 - **Running process** (dev server, build, hot reload) — a per-tool container,
   built from that tool's own Dockerfile.
 - **Editor tooling** (type checking, autocomplete, go-to-definition) — mise on
   WSL directly, pinned to match each Dockerfile's version exactly.
 
 Rejected:
+
 - **A single shared devcontainer for all toolchains** — duplicates WSL2's own
   Linux capability, adds an editor-attach hop with no remaining problem left
   to solve, and its main benefit (identical toolchain for any future
@@ -86,6 +89,7 @@ polling fallback. The usual complaint about containerized dev being slow to
 pick up file changes is a Windows-drvfs problem; it does not apply here.
 
 Debugger attach is a forwarded port, nothing more:
+
 - Go: Delve, `dlv --headless --listen=:2345`.
 - Frontend: Bun's `--inspect`.
 
@@ -96,8 +100,7 @@ flow.
 ### Dev networking
 
 No Traefik locally — unchanged from `NOTES.md`'s routing decision, prod-only.
-Containers reach each other by Compose service name over the Compose network
-(e.g. `file-converter`), not `localhost`.
+Containers reach each other by Compose service name over the Compose network (e.g. `file-converter`), not `localhost`.
 
 `vite.config.ts` already supports this, unused until now: `API_PROXY_TARGET`
 overrides the dev-server proxy target (default `http://localhost:8080`).
@@ -106,12 +109,9 @@ dev service — no frontend code change needed for this.
 
 ### Orchestration
 
-`compose-workspace.yaml` becomes the one place every tool's dev container is
+`docker-compose.yaml` becomes the one place every tool's dev container is
 defined — one service per tool, each built with `target: dev`. `docker
-compose -f compose-workspace.yaml up -d` starts the world. The
-`Makefile`/`justfile` wrapper (`up`/`down`/`logs`) named in `NOTES.md` still
-applies, now fronting per-tool containers instead of a shared workspace
-container.
+compose up -d` starts the world.
 
 ### Editor tooling via mise
 
@@ -139,6 +139,9 @@ without an editor-attach hop into any container.
 - The gateway's dev/prod container shape — the gateway itself is still
   deferred per `NOTES.md`; this spec's per-tool contract applies to it once
   it exists, not before.
+- The root `Makefile`/`justfile` wrapper (`up`/`down`/`logs`) named in
+  `NOTES.md`. For now, run `docker compose -f docker-compose.yaml <command>`
+  directly.
 
 ## Out of scope
 

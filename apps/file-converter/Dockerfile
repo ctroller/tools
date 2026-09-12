@@ -18,8 +18,6 @@ FROM base AS dev
 RUN apt-get update && apt-get install -y --no-install-recommends libvips42t64 \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /src
-
 RUN go install github.com/air-verse/air@v1.67.4
 RUN go install github.com/go-delve/delve/cmd/dlv@v1.27.2
 

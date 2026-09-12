@@ -34,10 +34,10 @@ yet added:** `mise.toml` itself, with a pinned Bun version — needed before `ap
 Start the tool services with Docker Compose:
 
 ```bash
-docker compose -f compose-workspace.yaml up -d
+docker compose -f docker-compose.yaml up -d
 ```
 
-Tool services (e.g. `file-converter`) are defined as Compose services — uncomment them in `compose-workspace.yaml` as
+Tool services (e.g. `file-converter`) are defined as Compose services — uncomment them in `docker-compose.yaml` as
 tools are built.
 
 ## Routing contract (prod and dev parity)

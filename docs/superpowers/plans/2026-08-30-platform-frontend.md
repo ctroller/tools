@@ -666,4 +666,5 @@ Matches the spec's "Deferred" and "Out of scope" sections — do not add these s
 - Any actual file-converter UI (upload, format selection, status/download) — separate future work alongside that tool's backend.
 - Auth.
 - Linting/formatting tooling.
-- Devcontainer/`compose-workspace.yaml` wiring for Bun — those files don't exist yet in this repo at all (pre-existing gap, not created by this plan); running this plan's commands assumes Bun is available in whatever shell executes it.
+- Devcontainer/`docker-compose.yaml` wiring for Bun — those files don't exist yet in this repo at all (pre-existing gap,
+  not created by this plan); running this plan's commands assumes Bun is available in whatever shell executes it.

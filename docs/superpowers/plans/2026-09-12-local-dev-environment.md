@@ -18,7 +18,7 @@ image.
 reload + debug port, source bind-mounted at runtime) alongside its existing
 `prod` stage. For most tools, both stages build from the same exact base
 image tag; the frontend is an exception (see Global Constraints).
-`compose-workspace.yaml` builds every tool's `dev` stage and wires them onto
+`docker-compose.yaml` builds every tool's `dev` stage and wires them onto
 one Compose network.
 `mise.toml` pins the same exact toolchain versions on WSL directly, for
 editor tooling only — nothing in `mise.toml` runs a dev server.
@@ -208,62 +208,51 @@ Bun + Vite (frontend).
 
 ---
 
-### Task 4: `compose-workspace.yaml` + root orchestration wrapper
+### Task 4: `docker-compose.yaml` orchestration
 
 **Files:**
 
-- Modify: `compose-workspace.yaml` (currently empty)
-- Create: root `Makefile` (recommended, for consistency with
-  `apps/file-converter/Makefile`'s existing convention — a `justfile` works
-  identically if preferred instead)
+- Modify: `docker-compose.yaml` (currently empty)
 
 **Interfaces:**
 
 - Consumes: file-converter's dev-stage ports (`8080` app, `2345` debug) from
   Task 2; frontend's dev-stage ports from Task 3.
-- Produces: `docker compose -f compose-workspace.yaml up -d` (or `make up`)
-  as the one command that starts every tool's dev container — what Task 5's
-  docs must describe.
+- Produces: `docker compose up -d` as the one command
+  that starts every tool's dev container.
 
-- [ ] **Step 1: Define the `file-converter` service.** `build.context:
+- [x] **Step 1: Define the `file-converter` service.** `build.context:
   ./apps/file-converter`, `build.target: dev`; bind-mount
   `./apps/file-converter` into the container's `WORKDIR`; publish the app
   port (`8080`) and the debug port (`2345`) to the host.
-- [ ] **Step 2: Define the `frontend` service.** `build.context:
+- [x] **Step 2: Define the `frontend` service.** `build.context:
   ./apps/frontend`, `build.target: dev`; bind-mount `./apps/frontend` into
   the container's `WORKDIR`; publish the dev-server port and the inspector
   port from Task 3; set `API_PROXY_TARGET=http://file-converter:8080` as an
   environment variable — `apps/frontend/vite.config.ts:16` already reads
   this, no frontend code change needed for it.
-- [ ] **Step 3: Confirm networking.** Both services need to resolve each
+- [x] **Step 3: Confirm networking.** Both services need to resolve each
   other by Compose service name. Compose's own default network is normally
   sufficient — only declare a named network explicitly if you have a
   specific reason to.
-- [ ] **Step 4: Verify it starts.**
+- [x] **Step 4: Verify it starts.**
   ```bash
-  docker compose -f compose-workspace.yaml up -d
-  docker compose -f compose-workspace.yaml ps
+  docker compose -f docker-compose.yaml up -d
+  docker compose -f docker-compose.yaml ps
   ```
   Expected: both services show as running.
-- [ ] **Step 5: Verify host access.** `curl` both published app ports from
+- [x] **Step 5: Verify host access.** `curl` both published app ports from
   the host directly.
-- [ ] **Step 6: Verify the internal proxy path, before trusting the browser.**
+- [x] **Step 6: Verify the internal proxy path, before trusting the browser.**
   ```bash
-  docker compose -f compose-workspace.yaml exec frontend curl http://file-converter:8080/<a-real-route>
+  docker compose -f docker-compose.yaml exec frontend curl http://file-converter:8080/<a-real-route>
   ```
   Expected: succeeds — this proves the Compose-network DNS name resolves
   and `API_PROXY_TARGET` is wired correctly, independent of whether the
   browser-facing proxy happens to look right.
-- [ ] **Step 7: Write the root `Makefile`.** `up` runs `docker compose -f
-  compose-workspace.yaml up -d`; `down` runs `docker compose -f
-  compose-workspace.yaml down`; `logs` runs `docker compose -f
-  compose-workspace.yaml logs -f` — matching what `NOTES.md` already
-  committed to.
-- [ ] **Step 8: Verify the wrapper.** Run `make up`, `make logs` (Ctrl-C to
-  exit), `make down` — confirm each does what its name says.
-- [ ] **Step 9: Commit.**
+- [x] **Step 7: Commit.**
   ```bash
-  git add compose-workspace.yaml Makefile
+  git add docker-compose.yaml
   git commit -m "feat: Wire file-converter and frontend dev containers into Compose"
   ```
 
@@ -283,7 +272,7 @@ Bun + Vite (frontend).
   the current text (which still describes mise as running the dev processes
   directly — written before this spec existed) with: per-tool containers
   run the dev servers, built from each tool's own Dockerfile `dev` stage via
-  `compose-workspace.yaml`; `mise.toml` exists and its job is editor
+  `docker-compose.yaml`; `mise.toml` exists and its job is editor
   tooling on WSL only (type-checking, linting, autocomplete), not running
   anything. Link to
   `docs/superpowers/specs/2026-09-12-local-dev-environment-design.md`, the

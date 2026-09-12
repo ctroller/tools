@@ -1,23 +1,6 @@
-<script lang="ts">
-    import ToolTag from '$lib/components/ToolTag.svelte';
-    import {type Tool, Tools} from '$lib/tools';
+<script lang="ts" ✂prettier:content✂="CglpbXBvcnQgVG9vbFRhZyBmcm9tICckbGliL2NvbXBvbmVudHMvVG9vbFRhZy5zdmVsdGUnOwoJaW1wb3J0IHsgdHlwZSBUb29sLCBUb29scyB9IGZyb20gJyRsaWIvdG9vbHMnOwoKCWxldCBmaWx0ZXJzOiBzdHJpbmdbXSA9ICRzdGF0ZShbXSk7CgoJZnVuY3Rpb24gdG9nZ2xlRmlsdGVyKHRhZzogc3RyaW5nKSB7CgkJZmlsdGVycyA9IGZpbHRlcnMuaW5jbHVkZXModGFnKSA/IGZpbHRlcnMuZmlsdGVyKChmKSA9PiBmICE9PSB0YWcpIDogWy4uLmZpbHRlcnMsIHRhZ107Cgl9CgoJbGV0IGZpbHRlcmVkOiBUb29sW10gPSAkZGVyaXZlZCgKCQlUb29scy5maWx0ZXIoKHRvb2wpID0+IGZpbHRlcnMuZXZlcnkoKHRhZykgPT4gdG9vbC50YWdzLmluY2x1ZGVzKHRhZykpKQoJKTsKCglsZXQgYWxsVGFnczogeyB0YWc6IHN0cmluZzsgY291bnQ6IG51bWJlciB9W10gPSAkZGVyaXZlZCgKCQlBcnJheS5mcm9tKG5ldyBTZXQoVG9vbHMuZmxhdE1hcCgodG9vbCkgPT4gdG9vbC50YWdzKSkpCgkJCS5zb3J0KChhLCBiKSA9PiBhLmxvY2FsZUNvbXBhcmUoYikpCgkJCS5tYXAoKHRhZykgPT4gKHsgdGFnLCBjb3VudDogZmlsdGVyZWQuZmlsdGVyKCh0b29sKSA9PiB0b29sLnRhZ3MuaW5jbHVkZXModGFnKSkubGVuZ3RoIH0pKQoJKTsKCgljb25zdCBsb2FkID0gYXN5bmMgKCkgPT4gewoJCWF3YWl0IGZldGNoKCcvYXBpL2ZpbGUtY29udmVydGVyL2Zvcm1hdHMnKTsKCX07Cg==">{}</script>
 
-    let filters: string[] = $state([]);
-
-	function toggleFilter(tag: string) {
-		filters = filters.includes(tag) ? filters.filter((f) => f !== tag) : [...filters, tag];
-	}
-
-	let filtered: Tool[] = $derived(
-		Tools.filter((tool) => filters.every((tag) => tool.tags.includes(tag)))
-	);
-
-	let allTags: { tag: string; count: number }[] = $derived(
-		Array.from(new Set(Tools.flatMap((tool) => tool.tags)))
-			.sort((a, b) => a.localeCompare(b))
-			.map((tag) => ({ tag, count: filtered.filter((tool) => tool.tags.includes(tag)).length }))
-	);
-</script>
+<svelte:window on:load={load} />
 
 <div class="tag-filters">
 	{#each allTags as { tag, count } (tag)}
@@ -38,35 +21,4 @@
 	{/each}
 </div>
 
-<style>
-	.tag-filters {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.35rem;
-		margin-top: 1.25rem;
-	}
-
-	.tag-filter {
-		background: #4a4740;
-		color: #ede7da;
-		font-size: 0.75rem;
-		line-height: normal;
-		padding: 0.2rem 0.5rem;
-		border: none;
-		border-radius: 0.2rem;
-		cursor: pointer;
-	}
-
-	.tag-filter.active {
-		background: #d9531e;
-		color: #1c1b19;
-	}
-
-	.tool-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-		gap: 1.25rem;
-		margin-top: 1.5rem;
-	}
-</style>
+<style ✂prettier:content✂="CgkudGFnLWZpbHRlcnMgewoJCWRpc3BsYXk6IGZsZXg7CgkJZmxleC13cmFwOiB3cmFwOwoJCWFsaWduLWl0ZW1zOiBjZW50ZXI7CgkJZ2FwOiAwLjM1cmVtOwoJCW1hcmdpbi10b3A6IDEuMjVyZW07Cgl9CgoJLnRhZy1maWx0ZXIgewoJCWJhY2tncm91bmQ6ICM0YTQ3NDA7CgkJY29sb3I6ICNlZGU3ZGE7CgkJZm9udC1zaXplOiAwLjc1cmVtOwoJCWxpbmUtaGVpZ2h0OiBub3JtYWw7CgkJcGFkZGluZzogMC4ycmVtIDAuNXJlbTsKCQlib3JkZXI6IG5vbmU7CgkJYm9yZGVyLXJhZGl1czogMC4ycmVtOwoJCWN1cnNvcjogcG9pbnRlcjsKCX0KCgkudGFnLWZpbHRlci5hY3RpdmUgewoJCWJhY2tncm91bmQ6ICNkOTUzMWU7CgkJY29sb3I6ICMxYzFiMTk7Cgl9CgoJLnRvb2wtZ3JpZCB7CgkJZGlzcGxheTogZ3JpZDsKCQlncmlkLXRlbXBsYXRlLWNvbHVtbnM6IHJlcGVhdChhdXRvLWZpbGwsIG1pbm1heCgyMjBweCwgMWZyKSk7CgkJZ2FwOiAxLjI1cmVtOwoJCW1hcmdpbi10b3A6IDEuNXJlbTsKCX0K"></style>

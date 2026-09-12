@@ -17,7 +17,9 @@ export default defineConfig({
 			'/api/file-converter': {
 				target: process.env.FC_PROXY_TARGET ?? 'http://localhost:8080',
 				changeOrigin: true,
-				rewrite: (path) => path.replace(/^\/api\/file-converter\/[^/]+/, '')
+				rewrite: (path) => {
+					return path.replaceAll(/^\/api\/file-converter/g, '');
+				}
 			}
 		}
 	}
