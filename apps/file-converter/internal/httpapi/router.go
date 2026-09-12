@@ -20,7 +20,7 @@ func NewRouter(r *convert.Registry, i *task.JobIntake) http.Handler {
 	mux.HandleFunc("GET /formats", api.Formats)
 	mux.HandleFunc("POST /files", api.Files)
 	mux.HandleFunc("GET /files/{handle}", api.FilesHandle)
-	mux.HandleFunc("PUT /files/{handle}/convert", api.Convert)
+	mux.HandleFunc("POST /files/{handle}/convert", api.Convert)
 	mux.HandleFunc("GET /files/{handle}/events", func(w http.ResponseWriter, r *http.Request) {
 		SSEHandler(w, r, 1*time.Second, api.FilesHandleStream)
 	})
