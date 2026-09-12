@@ -11,8 +11,8 @@ Personal homelab toolbox platform. The primary goal is improving cloud-native sk
 ```
 apps/<tool>/          # one service per tool (own Dockerfile)
 deploy/<tool>/        # k8s manifests for that tool (mirrors apps/ layout)
-compose-workspace.yaml  # dev environment (tool services, no devcontainer)
-.mise.toml            # pinned Go/Node/Bun/kubectl versions for WSL
+docker-compose.yaml   # dev environment (each tool's `dev` stage, no devcontainer)
+mise.toml             # pinned Go/Bun versions, for WSL editor tooling only
 ```
 
 `deploy/` is structured for GitOps (future Argo/Flux points here, no reshuffle needed).
@@ -28,17 +28,19 @@ Each tool is a standalone app under `apps/<tool>/`. See individual README/AGENTS
 
 Editor attaches to the WSL distro directly (VS Code Remote-WSL). No devcontainer.
 
-Toolchain versions come from `mise.toml` (mise), not a container: Go, Node, Bun, kubectl. No Helm or Minikube. **Not
-yet added:** `mise.toml` itself, with a pinned Bun version — needed before `apps/frontend/` can build.
+Per-tool containers run the dev servers. Each `apps/<tool>/Dockerfile` has a `dev` stage (hot reload, debugger port,
+source bind-mounted at runtime) next to its `prod` stage. `mise.toml` pins the same Go and Bun versions for WSL-side
+editor tooling only (type-checking, autocomplete, go-to-definition) — it never runs a dev server itself. Full design:
+`docs/superpowers/specs/2026-09-12-local-dev-environment-design.md`.
 
-Start the tool services with Docker Compose:
+Start every tool's dev container with Docker Compose:
 
 ```bash
-docker compose -f docker-compose.yaml up -d
+docker compose up -d
 ```
 
-Tool services (e.g. `file-converter`) are defined as Compose services — uncomment them in `docker-compose.yaml` as
-tools are built.
+Tool services (`file-converter`, `frontend`) are defined in `docker-compose.yaml`, each built from that tool's `dev`
+stage.
 
 ## Routing contract (prod and dev parity)
 
