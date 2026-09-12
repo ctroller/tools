@@ -8,15 +8,18 @@
 > `superpowers:receiving-code-review` / `superpowers:requesting-code-review`
 > for the review checkpoint at the end of each task, on request.
 
-**Goal:** Give every tool a `dev` and `prod` Dockerfile stage built from one
-pinned base image, orchestrated by Compose for dev, with live reload,
-debugger attach, and editor tooling (via mise) all working — replacing the
-devcontainer plan and the frontend's nginx-based prod stage.
+**Goal:** Give every tool a `dev` and `prod` Dockerfile stage, orchestrated
+by Compose for dev, with live reload, debugger attach, and editor tooling (via mise) all working — replacing the
+devcontainer plan. Except for the
+frontend (see Global Constraints), both stages build from one pinned base
+image.
 
 **Architecture:** Each `apps/<tool>/Dockerfile` gets a `dev` stage (hot
 reload + debug port, source bind-mounted at runtime) alongside its existing
-`prod` stage, both from the same exact base image tag. `compose-workspace.yaml`
-builds every tool's `dev` stage and wires them onto one Compose network.
+`prod` stage. For most tools, both stages build from the same exact base
+image tag; the frontend is an exception (see Global Constraints).
+`compose-workspace.yaml` builds every tool's `dev` stage and wires them onto
+one Compose network.
 `mise.toml` pins the same exact toolchain versions on WSL directly, for
 editor tooling only — nothing in `mise.toml` runs a dev server.
 
@@ -35,6 +38,10 @@ Bun + Vite (frontend).
 - A tool's `dev` and `prod` Dockerfile stages must share one exact, pinned
   base image tag. No floating tags (`golang:1.27-trixie`, `oven/bun:1`) once
   this plan is done.
+- **Exception: the frontend.** Its `prod` stage runs nginx, not Bun, so it
+  cannot share a base image with the Bun-based `dev` stage. The frontend's
+  `dev` stage still pins an exact Bun tag. Its `prod` stage keeps the
+  floating `nginx:alpine` tag — pinning nginx is out of scope for this plan.
 
 ---
 
@@ -135,7 +142,7 @@ Bun + Vite (frontend).
   server" launch config, or `dlv connect localhost:2345`). Set a breakpoint
   in a handler under `internal/httpapi/`, trigger it with a request, and
   confirm execution actually stops there.
-- [ ] **Step 9: Commit.**
+- [x] **Step 9: Commit.**
   ```bash
   git add apps/file-converter/Dockerfile apps/file-converter/.air.toml
   git commit -m "feat: Add dev stage to file-converter Dockerfile (air + delve)"
@@ -143,27 +150,26 @@ Bun + Vite (frontend).
 
 ---
 
-### Task 3: frontend Dockerfile — `dev` stage, and drop nginx from prod
+### Task 3: frontend Dockerfile — add a `dev` stage; `prod` stays nginx-based
 
 **Files:**
 
 - Modify: `apps/frontend/Dockerfile`
-- Create: `apps/frontend/serve.ts` (or `.js` — match whatever convention the
-  rest of `apps/frontend` uses for standalone scripts; check before picking)
-- Delete: `apps/frontend/nginx.conf`
 
 **Interfaces:**
 
-- Consumes: the exact Bun version pinned in Task 1.
-- Produces: the `dev` stage Task 4's Compose file builds and publishes, and
-  the Bun-serves-its-own-build `prod` stage that Task 5's docs must describe
-  accurately.
+- Consumes: the exact Bun version pinned in Task 1, for the `dev` stage
+  only. The `prod` stage keeps its existing, unpinned `nginx:alpine` tag —
+  see Global Constraints' frontend exception.
+- Produces: the `dev` stage Task 4's Compose file builds and publishes. The
+  existing nginx-based `prod` stage is unchanged; Task 5's docs must
+  continue to describe it as nginx-based.
 
-- [ ] **Step 1: Pin the exact base image.** Replace the floating `oven/bun:1`
+- [x] **Step 1: Pin the exact base image.** Replace the floating `oven/bun:1`
   (`apps/frontend/Dockerfile:1`) with the exact version recorded in Task 1.
-- [ ] **Step 2: Confirm the build stage's name.** It is already
+- [x] **Step 2: Confirm the build stage's name.** It is already
   `AS build` — no change needed there.
-- [ ] **Step 3: Add the `dev` stage.** Base it on the same pinned Bun image.
+- [x] **Step 3: Add the `dev` stage.** Base it on the same pinned Bun image.
   It must: copy `package.json`/`bun.lock` and run `bun install
   --frozen-lockfile`, matching the `build` stage's own install step; **not**
   copy the rest of the source (bind-mounted at run time instead); run the
@@ -173,51 +179,31 @@ Bun + Vite (frontend).
   for the exact current flag to run a script while also exposing the
   inspector — don't guess a remembered flag, verify it against this Bun
   version.
-- [ ] **Step 4: Expose the dev stage's ports.** `EXPOSE` the Vite dev
+- [x] **Step 4: Expose the dev stage's ports.** `EXPOSE` the Vite dev
   server's port (confirm the actual value against `apps/frontend/vite.config.ts`
   — it does not currently override Vite's default) and the explicit
   inspector port chosen in Step 3.
-- [ ] **Step 5: Replace the `prod` stage.** Base it on the same pinned Bun
-  image instead of `nginx:alpine`. Copy only the `build/` output from the
-  `build` stage (nothing else — no `node_modules`, no source, no dev
-  dependencies) plus `serve.ts`. Create a non-root system user the same way
-  `apps/file-converter/Dockerfile` does (`useradd --system --no-create-home
-  --uid 1000 <name>`) and switch to it before the entrypoint. Set the
-  entrypoint to run `serve.ts` under Bun.
-- [ ] **Step 6: Write `apps/frontend/serve.ts`.** It must: use `Bun.serve`
-  directly (no framework); listen on `0.0.0.0`, on a port read from an env
-  var, defaulting to `4173` (Vite's own `preview` convention — distinct from
-  file-converter's `8080`, since both containers may run at once); for each
-  request, serve the matching static file from the copied `build/`
-  directory if one exists; otherwise respond with `build/index.html` (this
-  is the SPA-fallback rule `nginx.conf`'s `try_files $uri $uri/ /index.html`
-  gave for free). Do not special-case `/api/*` — this container should
-  never receive that path under the routing contract (Traefik strips it in
-  prod; the dev proxy handles it in dev), so it doesn't need to know about
-  it.
-- [ ] **Step 7: Verify the dev stage.**
-  ```bash
-  docker build --target dev -t frontend:dev-check apps/frontend
-  ```
-  Run it bind-mounted with both ports published. Confirm the dev server
-  responds over HTTP. Edit a `.svelte` file and confirm the change shows up
-  without a manual rebuild. Connect a debugger to the inspector port and
-  confirm it attaches.
-- [ ] **Step 8: Verify the prod stage.**
+- [x] **Step 5: Verify prod is unaffected.**
   ```bash
   docker build --target prod -t frontend:prod-check apps/frontend
   ```
-  Run it. `curl localhost:<port>/` returns the built `index.html`.
-  `curl localhost:<port>/some/nonexistent/path` also returns `index.html`
-  content, not a 404. `docker exec <container> whoami` (or `id`) shows the
-  non-root user, not root.
-- [ ] **Step 9: Delete `apps/frontend/nginx.conf`** — nothing references it
-  once Step 5 lands.
-- [ ] **Step 10: Commit.**
+  Expected: succeeds, same nginx-based image as before this task. `nginx.conf`
+  and its `try_files $uri $uri/ /index.html` SPA-fallback rule need no
+  change.
+- [x] **Step 6: Verify the dev stage builds.**
   ```bash
-  git add apps/frontend/Dockerfile apps/frontend/serve.ts
-  git rm apps/frontend/nginx.conf
-  git commit -m "feat: Add frontend dev stage, drop nginx for Bun-served prod"
+  docker build --target dev -t frontend:dev-check apps/frontend
+  ```
+  Expected: succeeds.
+- [x] **Step 7: Verify live reload.** Run the dev image bind-mounted with
+  both ports published. Confirm the dev server responds over HTTP. Edit a
+  `.svelte` file and confirm the change shows up without a manual rebuild.
+- [x] **Step 8: Verify debugging.** Connect a debugger to the inspector port
+  and confirm it attaches.
+- [] **Step 9: Commit.**
+  ```bash
+  git add apps/frontend/Dockerfile
+  git commit -m "feat: Add dev stage to frontend Dockerfile (Vite + Bun inspector)"
   ```
 
 ---
@@ -311,8 +297,9 @@ Bun + Vite (frontend).
   inline (no Traefik locally; no Kubernetes for local dev) and removing
   anything the per-container model has superseded.
 - [ ] **Step 4: Re-read both files start to finish.** Confirm no remaining
-  reference to a shared `workspace` devcontainer, to mise running dev
-  processes, or to nginx anywhere in either file.
+  reference to a shared `workspace` devcontainer or to mise running dev
+  processes. The frontend's nginx-based `prod` stage is correct and stays
+  described as such.
 - [ ] **Step 5: Commit.**
   ```bash
   git add AGENTS.md

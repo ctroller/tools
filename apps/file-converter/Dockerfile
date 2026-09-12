@@ -1,11 +1,11 @@
-FROM golang:1.27.1-trixie AS builder
-
+FROM golang:1.27.1-trixie AS base
+WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libvips-dev \
         pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /src
+FROM base AS builder
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -13,12 +13,9 @@ RUN go mod download
 COPY . .
 RUN make build BINARY=/out/file-converter
 
-FROM golang:1.27.1-trixie AS dev
+FROM base AS dev
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        libvips-dev \
-        libvips42t64 \
-        pkg-config \
+RUN apt-get update && apt-get install -y --no-install-recommends libvips42t64 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
