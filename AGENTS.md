@@ -11,8 +11,8 @@ Personal homelab toolbox platform. The primary goal is improving cloud-native sk
 ```
 apps/<tool>/          # one service per tool (own Dockerfile)
 deploy/<tool>/        # k8s manifests for that tool (mirrors apps/ layout)
-compose-workspace.yaml  # dev environment (workspace devcontainer + tool services)
-.devcontainer/        # VS Code devcontainer config
+compose-workspace.yaml  # dev environment (tool services, no devcontainer)
+.mise.toml            # pinned Go/Node/Bun/kubectl versions for WSL
 ```
 
 `deploy/` is structured for GitOps (future Argo/Flux points here, no reshuffle needed).
@@ -26,16 +26,19 @@ Each tool is a standalone app under `apps/<tool>/`. See individual README/AGENTS
 
 ## Dev environment
 
-Start the workspace with Docker Compose:
+Editor attaches to the WSL distro directly (VS Code Remote-WSL). No devcontainer.
+
+Toolchain versions come from `.mise.toml` (mise), not a container: Go, Node, Bun, kubectl. No Helm or Minikube. **Not
+yet added:** `.mise.toml` itself, with a pinned Bun version — needed before `apps/frontend/` can build.
+
+Start the tool services with Docker Compose:
 
 ```bash
 docker compose -f compose-workspace.yaml up -d
 ```
 
-Attach VS Code to the `workspace` service (devcontainer). Tool services (e.g. `file-converter`) are defined as separate Compose services alongside `workspace` — uncomment them in `compose-workspace.yaml` as tools are built.
-
-Devcontainer ships: Go 1.26, Node 26, kubectl. No Helm or Minikube.
-**Not yet added:** Bun (frontend runtime/package manager, see the frontend design spec) — needed before `apps/frontend/` can build.
+Tool services (e.g. `file-converter`) are defined as Compose services — uncomment them in `compose-workspace.yaml` as
+tools are built.
 
 ## Routing contract (prod and dev parity)
 
