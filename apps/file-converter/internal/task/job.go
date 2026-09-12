@@ -1,6 +1,8 @@
 package task
 
-import "trox.dev/file-converter/internal/convert"
+import (
+	"trox.dev/file-converter/internal/convert"
+)
 
 type Job struct {
 	ID        string

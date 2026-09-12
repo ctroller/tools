@@ -96,5 +96,9 @@ func (intake *JobIntake) StartJob(id string, target convert.MediaType) error {
 }
 
 func (intake *JobIntake) Lookup(id string) (JobResult, bool) {
+	if id == "" {
+		return JobResult{}, false
+	}
+
 	return intake.store.Get(id)
 }

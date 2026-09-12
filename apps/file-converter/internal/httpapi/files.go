@@ -67,5 +67,5 @@ func (a *API) Files(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	RenderJSON(w, Result{Handle: res.JobID, DetectedSource: source, Targets: targets})
+	RenderJSON(w, Response[Result]{Data: Result{Handle: res.JobID, DetectedSource: source, Targets: targets}})
 }

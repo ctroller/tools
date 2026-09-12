@@ -15,21 +15,22 @@ type FileHandleResult struct {
 }
 
 func (a *API) FilesHandle(w http.ResponseWriter, r *http.Request) {
-	if result := a.lookupHandle(w, r); result != nil {
-		RenderJSON(w, result)
+	handle := r.PathValue("handle")
+	result, ok := a.intake.Lookup(handle)
+	if !ok {
+		HttpProblem(w, "", "Not Found", http.StatusNotFound, "Job with handle "+handle+" not found.")
+		return
 	}
+
+	fhr := toFileHandleResult(result)
+	RenderJSON(w, fhr)
 }
 
 func (a *API) FilesHandleStream(w http.ResponseWriter, r *http.Request) (done bool) {
 	handle := r.PathValue("handle")
-	if handle == "" {
-		writeSSEData(w, FileHandleResult{Status: task.StatusFailed, Error: "Missing handle param."})
-		return true
-	}
-
 	result, ok := a.intake.Lookup(handle)
 	if !ok {
-		writeSSEData(w, FileHandleResult{Status: task.StatusFailed, Error: "Job with handle '" + handle + "' not found."})
+		writeSSEData(w, asResponse(FileHandleResult{Status: task.StatusFailed, Error: "Job with handle '" + handle + "' not found."}))
 		return true
 	}
 
@@ -38,7 +39,7 @@ func (a *API) FilesHandleStream(w http.ResponseWriter, r *http.Request) (done bo
 	return result.Status.Done()
 }
 
-func writeSSEData(w http.ResponseWriter, v any) {
+func writeSSEData(w http.ResponseWriter, v Response[FileHandleResult]) {
 	payload, err := json.Marshal(v)
 	if err != nil {
 		slog.Error("Failed to encode SSE payload", "err", err)
@@ -46,4 +47,12 @@ func writeSSEData(w http.ResponseWriter, v any) {
 	}
 
 	AppendSSE(w, string(payload))
+}
+
+func toFileHandleResult(result task.JobResult) Response[FileHandleResult] {
+	return asResponse(FileHandleResult{Status: result.Status, Error: result.Error(), Handle: result.JobID})
+}
+
+func asResponse(result FileHandleResult) Response[FileHandleResult] {
+	return Response[FileHandleResult]{Data: result}
 }

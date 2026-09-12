@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 )
@@ -31,5 +33,7 @@ func HttpProblem(w http.ResponseWriter, pType, title string, status int, detail 
 		Detail: detail,
 	}
 
-	RenderJSONStatus(w, problem, "application/problem+json", status)
+	Render(w, "application/problem+json", status, func(w io.Writer) error {
+		return json.NewEncoder(w).Encode(problem)
+	})
 }
