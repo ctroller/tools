@@ -268,7 +268,7 @@ Bun + Vite (frontend).
 
 **Interfaces:** none — documentation only.
 
-- [ ] **Step 1: Update `AGENTS.md`'s "Dev environment" section.** Replace
+- [x] **Step 1: Update `AGENTS.md`'s "Dev environment" section.** Replace
   the current text (which still describes mise as running the dev processes
   directly — written before this spec existed) with: per-tool containers
   run the dev servers, built from each tool's own Dockerfile `dev` stage via
@@ -277,19 +277,19 @@ Bun + Vite (frontend).
   anything. Link to
   `docs/superpowers/specs/2026-09-12-local-dev-environment-design.md`, the
   way the frontend spec is already linked elsewhere in this file.
-- [ ] **Step 2: Confirm `AGENTS.md`'s repo-layout code block.** Check the
+- [x] **Step 2: Confirm `AGENTS.md`'s repo-layout code block.** Check the
   `mise.toml` line's comment still matches reality once Task 1's Node
   decision is known — adjust if it changed what's actually pinned.
-- [ ] **Step 3: Update `NOTES.md`'s "Dev experience" section.** Replace the
+- [x] **Step 3: Update `NOTES.md`'s "Dev experience" section.** Replace the
   bullets written earlier this session (before this spec existed) with a
   short pointer to the new spec, keeping only what's still true stated
   inline (no Traefik locally; no Kubernetes for local dev) and removing
   anything the per-container model has superseded.
-- [ ] **Step 4: Re-read both files start to finish.** Confirm no remaining
+- [x] **Step 4: Re-read both files start to finish.** Confirm no remaining
   reference to a shared `workspace` devcontainer or to mise running dev
   processes. The frontend's nginx-based `prod` stage is correct and stays
   described as such.
-- [ ] **Step 5: Commit.**
+- [x] **Step 5: Commit.**
   ```bash
   git add AGENTS.md
   git commit -m "docs: Describe the finished per-tool dev container model"
