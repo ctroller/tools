@@ -3,7 +3,7 @@
 ## Status
 
 Design agreed, not yet implemented. `compose-workspace.yaml` exists but is
-empty. `.mise.toml` does not exist yet. No tool's Dockerfile has a `dev` stage
+empty. `mise.toml` does not exist yet. No tool's Dockerfile has a `dev` stage
 yet.
 
 ## Context
@@ -107,12 +107,11 @@ container.
 
 ### Editor tooling via mise
 
-`.mise.toml` at the repo root pins Go, Node, Bun, and kubectl for WSL,
+`mise.toml` at the repo root pins Go, Node, and Bun for WSL,
 versions kept in sync with whatever each tool's Dockerfile pins. This is a
 deliberate, small duplication — a version bump touches two files, the
-Dockerfile and `.mise.toml` — accepted in exchange for full editor support
-without an editor-attach hop into any container. kubectl has no per-tool
-container equivalent; it stays a host-level CLI, pinned the same way.
+Dockerfile and `mise.toml` — accepted in exchange for full editor support
+without an editor-attach hop into any container.
 
 ## Deferred (explicitly, not forgotten)
 

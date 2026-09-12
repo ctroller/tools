@@ -28,8 +28,8 @@ Each tool is a standalone app under `apps/<tool>/`. See individual README/AGENTS
 
 Editor attaches to the WSL distro directly (VS Code Remote-WSL). No devcontainer.
 
-Toolchain versions come from `.mise.toml` (mise), not a container: Go, Node, Bun, kubectl. No Helm or Minikube. **Not
-yet added:** `.mise.toml` itself, with a pinned Bun version — needed before `apps/frontend/` can build.
+Toolchain versions come from `mise.toml` (mise), not a container: Go, Node, Bun, kubectl. No Helm or Minikube. **Not
+yet added:** `mise.toml` itself, with a pinned Bun version — needed before `apps/frontend/` can build.
 
 Start the tool services with Docker Compose:
 
