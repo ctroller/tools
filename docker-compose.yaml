@@ -5,6 +5,9 @@ services:
       target: dev
     volumes:
       - ./apps/file-converter:/app
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/formats || exit 1" ]
+      interval: 5s
     ports:
       - "8080:8080"
       - "2345:2345"
@@ -20,4 +23,5 @@ services:
     environment:
       FC_PROXY_TARGET: http://file-converter:8080
     depends_on:
-      - file-converter
+      file-converter:
+        condition: service_healthy
