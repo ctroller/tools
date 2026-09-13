@@ -1,6 +1,6 @@
 <script lang="ts">
-	import {resolve} from '$app/paths';
-	import type {RouteId} from '$app/types';
+	import { resolve } from '$app/paths';
+	import type { RouteId } from '$app/types';
 
 	let {
 		partNumber,
@@ -31,10 +31,9 @@
 		flex-direction: column;
 		gap: 0.35rem;
 		padding: 0.7rem 1.25rem 1.25rem 1.75rem;
-		background: #ede7da;
-		border: 1px solid #4a4740;
+		background-color: var(--pico-secondary-background);
+		border: 1px solid var(--pico-primary);
 		border-radius: 0.25rem;
-		color: #2b2a28;
 		text-decoration: none;
 		transition: box-shadow 0.15s ease;
 	}
@@ -42,7 +41,6 @@
 	.tool-tag:hover,
 	.tool-tag:focus-visible {
 		box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
-		color: #2b2a28;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
@@ -80,7 +78,7 @@
 		font-family: 'Allerta Stencil', monospace;
 		font-size: 0.75rem;
 		letter-spacing: 0.08em;
-		color: #d9531e;
+		color: var(--pico-primary);
 	}
 
 	.name {
@@ -91,7 +89,7 @@
 	}
 
 	.description {
-		font-size: 0.85rem;
-		color: #5c7a8a;
+		font-size: 0.7rem;
+		color: var(--pico-color);
 	}
 </style>

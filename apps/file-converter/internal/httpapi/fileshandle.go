@@ -11,7 +11,6 @@ import (
 type FileHandleResult struct {
 	Status task.JobStatus `json:"status"`
 	Error  string         `json:"error,omitempty"`
-	Handle string         `json:"handle"`
 }
 
 func (a *API) FilesHandle(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +49,7 @@ func writeSSEData(w http.ResponseWriter, v Response[FileHandleResult]) {
 }
 
 func toFileHandleResult(result task.JobResult) Response[FileHandleResult] {
-	return asResponse(FileHandleResult{Status: result.Status, Error: result.Error(), Handle: result.JobID})
+	return asResponse(FileHandleResult{Status: result.Status, Error: result.Error()})
 }
 
 func asResponse(result FileHandleResult) Response[FileHandleResult] {

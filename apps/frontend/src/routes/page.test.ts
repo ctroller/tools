@@ -1,5 +1,5 @@
-import {cleanup, fireEvent, render, screen} from '@testing-library/svelte';
-import {afterEach, describe, expect, it} from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { afterEach, describe, expect, it } from 'vitest';
 import Page from './+page.svelte';
 
 afterEach(cleanup);

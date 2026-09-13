@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { FilePlusCorner } from '@lucide/svelte';
+
 	const advancedUpload = () => {
 		const div = document.createElement('div');
 		const isDragDropSupported = 'draggable' in div || ('ondragstart' in div && 'ondrop' in div);
@@ -61,6 +63,9 @@
 	}}
 >
 	<div class="box__input">
+		<div class="icon">
+			<FilePlusCorner size={64} />
+		</div>
 		<input
 			class="box__file"
 			data-multiple-caption="{count} files selected"
@@ -68,16 +73,11 @@
 			multiple
 			name="files[]"
 			type="file"
+			onchange={(e) => ondrop(Array.from(e?.target?.files ?? []))}
 		/>
 		<label for="file"
 			><strong>Choose a file</strong> <span class="box__dragdrop">or drag it here</span>.</label
 		>
-		<button class="box__button" type="submit">Upload</button>
-	</div>
-	<div class="box__files">
-		{#each files as file, i (i)}
-			<div class="box__files-file file-{i}">{file.name}</div>
-		{/each}
 	</div>
 	<div class="box__uploading">Uploading…</div>
 	<div class="box__success">Done!</div>
@@ -105,7 +105,7 @@
 	}
 
 	.box.has-advanced-upload {
-		background-color: #ede7da;
+		background-color: var(--pico-secondary-background);
 		color: #2b2a28;
 		border-color: transparent;
 		outline: 2px dashed var(--pico-primary);
@@ -114,6 +114,7 @@
 			background-color 0.15s ease,
 			outline-color 0.15s ease;
 	}
+
 	.box.has-advanced-upload .box__dragdrop {
 		display: inline;
 	}
@@ -185,5 +186,10 @@
 	.box.is-dragover {
 		background-color: #000;
 		outline-color: var(--pico-primary-hover);
+	}
+
+	.icon {
+		display: block;
+		color: var(--pico-primary);
 	}
 </style>

@@ -39,10 +39,16 @@ result message. No download step yet.
 - `GET /files/{handle}` — same payload, one-shot poll.
 - `status` is one of: `uploaded | pending | processing | done | failed`.
 - Errors: non-2xx responses are `application/problem+json`:
-  `{ type, title, status, detail?, instance? }` (RFC 7807). This is **not** the envelope in
-  `src/lib/response-types.ts` — that file
-  models a different, unused convention. Don't reuse it here; its
-  `success`/`errors` shape doesn't match what this backend sends.
+  `{ type, title, status, detail?, instance? }` (RFC 7807).
+- Wire format on both sides is bare — no `success` field, no
+  `requestId`/`timestamp`/`meta`/`pagination`. Per your standing plan
+  for `ApiResponse<T>` (`src/lib/response-types.ts`), the frontend API
+  client is where `success` gets set (from the HTTP status code) and
+  the raw body gets normalized into `ResponseSuccess<T>` /
+  `ResponseError`. Any of those optional envelope fields stay absent
+  for file-converter today — they're optional in the type for exactly
+  this reason, and a later tool can start sending them without
+  changing the type.
 
 ## Libraries
 
@@ -60,34 +66,42 @@ result message. No download step yet.
 
 **Depends on:** nothing (start here). **File:** new `apps/frontend/src/lib/api/file-converter.ts`.
 
-Three thin `fetch` wrappers plus the shared parsing they need:
+Three thin `fetch` wrappers, typed against your `ApiResponse<T>`, plus
+the shared normalizer they need:
 
-- `uploadFile(file: File): Promise<UploadResult>` — `POST /files` as
-  `FormData` with a `file` field.
-- `startConversion(handle: string, target: MediaType): Promise<void>` —
+- `uploadFile(file: File): Promise<ApiResponse<UploadResult>>` —
+  `POST /files` as `FormData` with a `file` field.
+- `startConversion(handle: string, target: MediaType): Promise<ApiResponse<null>>` —
   `POST /files/{handle}/convert?target=...`. Remember to
   `encodeURIComponent` both the handle and the target — the target is a
-  MIME type and contains a `/`.
-- `fetchJobStatus(handle: string): Promise<JobStatusResult>` —
+  MIME type and contains a `/`. The 202 response has no body — treat
+  the success `data` as `null` rather than calling `res.json()` on
+  nothing.
+- `fetchJobStatus(handle: string): Promise<ApiResponse<JobStatusResult>>` —
   `GET /files/{handle}`.
-- A shared response parser: on `res.ok`, unwrap `{ data: T }`; on
-  failure, parse the `ProblemDetails` body and throw it wrapped in a
-  small `FileConverterError extends Error` (carry the parsed
-  `ProblemDetails` on it so callers can branch on `status` if they ever
-  need to, e.g. 409 = "already converting").
+- A shared normalizer, e.g. `toApiResponse<T>(res: Response): Promise<ApiResponse<T>>`:
+  on `res.ok`, read the bare `{ data: T }` body and return
+  `{ success: true, data, ...anyOtherFieldsThatCameBack }`; otherwise
+  read the RFC 7807 body and return `{ success: false, ...problem }`.
+  This is the one place `success` gets decided — every caller
+  downstream just reads `response.success`, matching the discriminated-union
+  pattern your own JSDoc example in `response-types.ts` shows.
 
 **Concepts to look up:**
 
 - Native `fetch` with `FormData` bodies (don't set `Content-Type`
   yourself — the browser sets the multipart boundary for you).
-- `Response.ok` / `res.json()` error-branch pattern.
-- TypeScript discriminated envelope typing (`{ data: T }` vs a problem
-  shape).
+- `Response.ok` as the input to the `success` decision.
+- TypeScript discriminated unions — `ApiResponse<T>` is
+  `ResponseSuccess<T> | ResponseError`, narrowed by the `success`
+  field; that's why callers get autocomplete on `.data` only after
+  checking `if (response.success)`.
 
 **Testing:** vitest, `vi.stubGlobal('fetch', vi.fn())` per test, assert
-the request URL/method/body and the parsed return value or thrown
-`FileConverterError`. Cover at least one success and one error case per
-function.
+the request URL/method/body and the returned `ApiResponse<T>` — check
+both `response.success === true` with the expected `data`, and
+`response.success === false` with the expected `title`/`status`/`detail`.
+Cover at least one success and one error case per function.
 
 **Done when:** all three functions have passing unit tests against a
 mocked `fetch`, for both success and a representative error response (e.g. 415 on upload, 409 on convert, 404 on
@@ -99,10 +113,24 @@ status).
 `apps/frontend/src/lib/api/file-converter.ts`.
 
 - `subscribeToJob(handle: string, onUpdate: (u: JobStatusResult) => void): () => void`.
+  Note this takes plain `JobStatusResult`, not `ApiResponse<JobStatusResult>`
+  — `ApiResponse`'s `success` flag comes from an HTTP status code, and
+  SSE pushes don't have one per message. A job that fails conversion
+  still arrives as a normal `done`-shaped SSE message with
+  `status: 'failed'` and an `error` string inside it (`ARCHITECTURE.md`
+  calls this out explicitly: job-time failures never reuse the
+  `Problem` shape, only request-time failures do). `fetchJobStatus`
+  (the poll fallback) still returns `ApiResponse<JobStatusResult>` from
+  Task A, since it's a real HTTP request — unwrap `.data` before
+  passing it to `onUpdate` so both channels feed it the same shape.
 - Opens `new EventSource(...)`, parses each message as
   `{ data: JobStatusResult }`, calls `onUpdate`.
 - On `source.onerror`, close the source and start polling
-  `fetchJobStatus` on an interval (e.g. 2s) instead.
+  `fetchJobStatus` on an interval (e.g. 2s) instead. Each poll tick: if
+  `response.success`, call `onUpdate(response.data)`; if not (handle
+  went missing, server error), decide whether to keep retrying or
+  surface it as a failed job — a 404 here means the handle is gone for
+  good, so that one shouldn't just retry forever.
 - Whichever channel reports `done` or `failed` should stop itself (close the SSE source / clear the poll interval).
 - Return value is an unsubscribe function that tears down whichever
   channel is currently active — the caller (Task D) needs this for
@@ -169,12 +197,14 @@ Takes one `{ file: File }` prop and drives the whole lifecycle for it:
 - States: `uploading → choosing-target → converting → done | failed`.
   Model as a plain `$state` string union — no state library needed for
   five states.
-- On mount, call `uploadFile`. On success, store `handle` and `targets`
-  and move to `choosing-target`. On failure, move to `failed` with the
-  error message.
+- On mount, call `uploadFile` and check `response.success`. On `true`,
+  read `handle`/`targets` off `response.data` and move to
+  `choosing-target`. On `false`, move to `failed` using
+  `response.title`/`response.detail` as the message.
 - Render one button per entry in `targets`; clicking one calls
-  `startConversion(handle, target)`, moves to `converting`, then calls
-  `subscribeToJob` and reacts to `done`/`failed` updates.
+  `startConversion(handle, target)` and checks `response.success` the
+  same way before moving to `converting` and calling `subscribeToJob`;
+  react to its `done`/`failed` updates same as before.
 - On unmount (or if the component is ever given a new `file`), call the
   unsubscribe function from `subscribeToJob` — don't leak the SSE
   connection or poll timer.
@@ -249,6 +279,6 @@ dropped file.
 - Multi-file drop / batch conversion.
 - Fixing the `PUT` vs `POST` mismatch in `ARCHITECTURE.md` — worth a
   one-line doc fix at some point, unrelated to the frontend work here.
-- `src/lib/response-types.ts` — unused, mismatched envelope. Not
-  touched by this plan; consider deleting it separately if nothing else
-  is using it.
+- Backend changes to send `requestId`/`timestamp`/`meta`/`pagination` —
+  not needed by anything file-converter does today; `ApiResponse<T>`
+  keeps them optional for exactly this case.

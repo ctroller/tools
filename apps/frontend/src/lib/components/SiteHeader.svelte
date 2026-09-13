@@ -1,5 +1,5 @@
 <script lang="ts">
-	import {resolve} from '$app/paths';
+	import { resolve } from '$app/paths';
 </script>
 
 <header class="crate-label container-fluid">

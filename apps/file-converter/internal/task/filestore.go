@@ -84,7 +84,7 @@ func (fj *FileJanitor) cleanup() {
 				}
 
 				if time.Since(stat.ModTime()) > fj.fileTTL {
-					slog.Info("file expired", "file", entry.Name())
+					slog.Info("file expired", "file", entry.Name(), "age", time.Since(stat.ModTime()).String())
 					fj.store.Delete(entry.Name())
 				}
 			}()
