@@ -54,8 +54,6 @@
 	}
 
 	.tag-filter {
-		background: #4a4740;
-		color: #ede7da;
 		font-size: 0.75rem;
 		line-height: normal;
 		padding: 0.2rem 0.5rem;
@@ -65,8 +63,8 @@
 	}
 
 	.tag-filter.active {
-		background: #d9531e;
-		color: #1c1b19;
+		background-color: var(--pico-primary);
+		color: var(--pico-color);
 	}
 
 	.tool-grid {

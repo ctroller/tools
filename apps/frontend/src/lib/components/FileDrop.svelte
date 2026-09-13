@@ -37,9 +37,6 @@
 	};
 
 	let { ondrop = () => {} }: { ondrop: (files: File[]) => void } = $props();
-
-	let count = 0;
-	let files: File[] = $state([]);
 </script>
 
 <form
@@ -58,55 +55,45 @@
 	ondrop={(e) => {
 		ondragend(e);
 		const f: File[] = Array.from(e.dataTransfer?.files ?? []);
-		files.push(...f);
 		ondrop(f);
 	}}
 >
 	<div class="box__input">
-		<div class="icon">
-			<FilePlusCorner size={64} />
-		</div>
 		<input
 			class="box__file"
-			data-multiple-caption="{count} files selected"
 			id="file"
 			multiple
 			name="files[]"
+			onchange={(e) => ondrop(Array.from((e?.target as HTMLInputElement)?.files ?? []))}
 			type="file"
-			onchange={(e) => ondrop(Array.from(e?.target?.files ?? []))}
 		/>
-		<label for="file"
-			><strong>Choose a file</strong> <span class="box__dragdrop">or drag it here</span>.</label
+		<label for="file">
+			<span class="icon">
+				<FilePlusCorner size={64} />
+			</span>
+			<strong>Choose a file</strong> <span class="box__dragdrop">or drag it here</span>.</label
 		>
 	</div>
-	<div class="box__uploading">Uploading…</div>
-	<div class="box__success">Done!</div>
-	<div class="box__error">Error!</div>
 </form>
 
 <style>
 	.box {
-		font-family: var(--pico-font-family);
+		font-family: var(--pico-font-family), sans-serif;
 		max-width: 32rem;
 		margin: 0 auto;
 		padding: 2rem 1.5rem;
 		text-align: center;
-		color: var(--pico-color);
+		color: var(--pico-secondary);
 		border: 1px solid var(--pico-muted-border-color);
 		border-radius: var(--pico-border-radius);
+		background-color: var(--pico-secondary-background);
 	}
 
-	.box__dragdrop,
-	.box__files,
-	.box__uploading,
-	.box__success,
-	.box__error {
-		display: none;
+	.box strong {
+		color: var(--pico-secondary-inverse);
 	}
 
 	.box.has-advanced-upload {
-		background-color: var(--pico-secondary-background);
-		color: #2b2a28;
 		border-color: transparent;
 		outline: 2px dashed var(--pico-primary);
 		outline-offset: -10px;
@@ -117,10 +104,6 @@
 
 	.box.has-advanced-upload .box__dragdrop {
 		display: inline;
-	}
-
-	.box.has-advanced-upload .box__files {
-		display: inline-block;
 	}
 
 	.box__input {
@@ -154,38 +137,17 @@
 		outline-offset: 4px;
 	}
 
-	.box__button {
-		font-family: 'Allerta Stencil', var(--pico-font-family), sans-serif;
-		text-transform: uppercase;
-		letter-spacing: 0.03em;
-		font-size: 0.85rem;
-		background: var(--pico-primary-background);
-		color: #ede7da;
-		border: none;
-		border-radius: var(--pico-border-radius);
-		padding: 0.5rem 1.25rem;
-		cursor: pointer;
-		transition: background-color 0.15s ease;
-	}
-
-	.box__button:hover {
-		background: var(--pico-primary-hover-background);
-	}
-
-	.box__uploading,
-	.box__success,
-	.box__error {
-		margin-top: 0.75rem;
-		font-size: 0.85rem;
-	}
-
-	.box__error {
-		color: var(--pico-primary);
-	}
-
 	.box.is-dragover {
-		background-color: #000;
-		outline-color: var(--pico-primary-hover);
+		background-color: var(--pico-secondary-hover);
+		outline-color: var(--pico-secondary);
+	}
+
+	.box.is-dragover .icon {
+		color: var(--pico-secondary);
+	}
+
+	.box.is-dragover span {
+		color: var(--pico-secondary-inverse);
 	}
 
 	.icon {

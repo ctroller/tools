@@ -8,6 +8,7 @@
 		uploadFile
 	} from '$lib/api/file-converter';
 	import type { ProblemDetails } from '$lib/response-types';
+	import { Trash } from '@lucide/svelte';
 
 	interface FileUpload {
 		handle: string;
@@ -52,6 +53,10 @@
 				});
 			});
 	}
+
+	function remove(file: FileUpload) {
+		uploadedFiles = uploadedFiles.filter((f) => f !== file);
+	}
 </script>
 
 <ToolShell>
@@ -63,9 +68,7 @@
 					<th>Name</th>
 					<th>Source</th>
 					<th>Target</th>
-					{#if conversion}
-						<th></th>
-					{/if}
+					<th></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -102,6 +105,10 @@
 									{pd.detail}
 								{/await}
 							</td>
+						{:else}
+							<td>
+								<Trash class="interactive-icon" onclick={() => remove(file)} />
+							</td>
 						{/if}
 					</tr>
 				{/each}
@@ -124,3 +131,9 @@
 		{/each}
 	{/if}
 </ToolShell>
+
+<style>
+	:global(.interactive-icon):hover {
+		cursor: pointer;
+	}
+</style>
