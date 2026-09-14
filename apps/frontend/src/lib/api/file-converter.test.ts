@@ -4,8 +4,37 @@ import { fetchJobStatus, startConversion, uploadFile } from './file-converter';
 const jsonResponse = (status: number, body: unknown) =>
 	new Response(JSON.stringify(body), { status });
 
+class FakeXhr {
+	status = 0;
+	response = '';
+	upload = { addEventListener: vi.fn() };
+	open = vi.fn();
+	send = vi.fn();
+	onload: (() => void) | null = null;
+	onerror: (() => void) | null = null;
+
+	respond(status: number, response: string) {
+		this.status = status;
+		this.response = response;
+		this.onload?.();
+	}
+
+	error() {
+		this.onerror?.();
+	}
+}
+
+let fakeXhr: FakeXhr;
+
 beforeEach(() => {
 	vi.stubGlobal('fetch', vi.fn());
+	fakeXhr = new FakeXhr();
+	vi.stubGlobal(
+		'XMLHttpRequest',
+		vi.fn(function () {
+			return fakeXhr;
+		})
+	);
 });
 
 afterEach(() => {
@@ -14,39 +43,40 @@ afterEach(() => {
 
 describe('uploadFile', () => {
 	it('resolves with the uploaded file data on success', async () => {
-		vi.mocked(fetch).mockResolvedValue(
-			jsonResponse(200, {
+		const file = new File(['content'], 'report.docx');
+
+		const pending = uploadFile(file);
+		fakeXhr.respond(
+			200,
+			JSON.stringify({
 				data: { handle: 'abc', detectedSource: 'docx', targets: ['pdf', 'txt'] }
 			})
 		);
-		const file = new File(['content'], 'report.docx');
 
-		const result = await uploadFile(file);
+		const result = await pending;
 
 		expect(result).toEqual({
 			success: true,
-			data: { handle: 'abc', detectedSource: 'docx', targets: ['pdf', 'txt'], name: 'report.docx' }
+			data: { handle: 'abc', detectedSource: 'docx', targets: ['pdf', 'txt'] }
 		});
-		expect(fetch).toHaveBeenCalledWith(
-			'/api/file-converter/files',
-			expect.objectContaining({ method: 'POST' })
-		);
+		expect(fakeXhr.open).toHaveBeenCalledWith('POST', '/api/file-converter/files', true);
 	});
 
 	it('resolves with the problem details on failure', async () => {
-		vi.mocked(fetch).mockResolvedValue(
-			jsonResponse(415, {
+		const file = new File(['content'], 'report.exe');
+
+		const pending = uploadFile(file);
+		fakeXhr.respond(
+			415,
+			JSON.stringify({
 				type: 'about:blank',
 				title: 'Unsupported Media Type',
 				status: 415,
 				detail: 'File type not supported'
 			})
 		);
-		const file = new File(['content'], 'report.exe');
 
-		const result = await uploadFile(file);
-
-		expect(result).toEqual({
+		await expect(pending).rejects.toEqual({
 			success: false,
 			type: 'about:blank',
 			title: 'Unsupported Media Type',
@@ -55,13 +85,14 @@ describe('uploadFile', () => {
 		});
 	});
 
-	it('resolves with a network error when fetch itself fails', async () => {
-		vi.mocked(fetch).mockRejectedValue(new TypeError('Failed to fetch'));
+	it('resolves with a network error when the request itself fails', async () => {
 		const file = new File(['content'], 'report.docx');
 
-		const result = await uploadFile(file);
+		const pending = uploadFile(file);
+		fakeXhr.status = 0;
+		fakeXhr.error();
 
-		expect(result).toEqual({
+		await expect(pending).rejects.toEqual({
 			success: false,
 			type: 'about:blank',
 			title: 'Network Error',
@@ -71,12 +102,12 @@ describe('uploadFile', () => {
 	});
 
 	it('resolves with a network error when the response body is not JSON', async () => {
-		vi.mocked(fetch).mockResolvedValue(new Response('<html>Bad Gateway</html>', { status: 502 }));
 		const file = new File(['content'], 'report.docx');
 
-		const result = await uploadFile(file);
+		const pending = uploadFile(file);
+		fakeXhr.respond(502, '<html>Bad Gateway</html>');
 
-		expect(result).toEqual({
+		await expect(pending).rejects.toEqual({
 			success: false,
 			type: 'about:blank',
 			title: 'Network Error',

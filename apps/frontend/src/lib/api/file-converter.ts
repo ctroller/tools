@@ -14,22 +14,43 @@ export interface JobStatusResult {
 
 const BASE_URL = '/api/file-converter';
 
-export const uploadFile = async (file: File): Promise<ApiResponse<UploadResult>> => {
-	const formData = new FormData();
-	formData.append('file', file);
+export const uploadFile = async (
+	file: File,
+	progressHandler?: (sent: number, total: number) => void
+): Promise<ApiResponse<UploadResult>> => {
+	return new Promise((resolve, reject) => {
+		const formData = new FormData();
+		formData.append('file', file);
 
-	const response = await toApiResponse<UploadResult>(
-		fetch(`${BASE_URL}/files`, {
-			method: 'POST',
-			body: formData
-		})
-	);
+		const xhr = new XMLHttpRequest();
+		xhr.upload.addEventListener('progress', (e) => {
+			if (e.lengthComputable) {
+				progressHandler?.(e.loaded, e.total);
+			}
+		});
 
-	if (!response.success) {
-		return response;
-	}
+		xhr.open('POST', `${BASE_URL}/files`, true);
+		xhr.send(formData);
 
-	return { ...response, data: { ...response.data, name: file.name } };
+		xhr.onload = () => {
+			let r;
+			try {
+				r = JSON.parse(xhr.response);
+			} catch {
+				reject(networkError(xhr.status));
+				return;
+			}
+			if (xhr.status >= 200 && xhr.status < 400) {
+				resolve({ ...r, success: true } as ApiResponse<UploadResult>);
+			} else {
+				reject({ ...r, success: false } as ResponseError);
+			}
+		};
+
+		xhr.onerror = () => {
+			reject(networkError(xhr.status));
+		};
+	});
 };
 
 export const startConversion = async (

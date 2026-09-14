@@ -39,6 +39,16 @@
 	let { ondrop = () => {} }: { ondrop: (files: File[]) => void } = $props();
 </script>
 
+<svelte:body
+	on:paste={(e) => {
+		let files: File[] = [...(e.clipboardData?.files || [])];
+		if (files.length > 0) {
+			prevent(e);
+			ondrop(files);
+		}
+	}}
+/>
+
 <form
 	action=""
 	class="box"

@@ -10,13 +10,22 @@
 	import type { ProblemDetails } from '$lib/response-types';
 	import { Trash } from '@lucide/svelte';
 
-	interface FileUpload {
+	interface FileInfo {
 		handle: string;
-		name: string;
 		detectedSource: string;
 		targets: string[];
-		target: string;
-		promise: Promise<JobStatusResult>;
+	}
+
+	interface FileUpload {
+		id: string;
+		status: 'uploading' | 'done' | 'error';
+		name: string;
+		progress: number;
+		error?: string;
+
+		info?: FileInfo;
+		target?: string;
+		convPromise?: Promise<JobStatusResult>;
 	}
 
 	let uploadedFiles: FileUpload[] = $state([]);
@@ -24,38 +33,63 @@
 	let conversion: boolean = $state(false);
 
 	function ondrop(files: File[]) {
-		uploadFile(files[0]).then((res) => {
-			if (res.success) {
-				uploadedFiles.push({
-					target: res.data.targets[0],
-					...res.data
-				} as FileUpload);
-			} else {
-				errors.push(res);
+		const f: FileUpload = {
+			id: crypto.randomUUID(),
+			name: files[0].name,
+			status: 'uploading',
+			progress: 0
+		};
+
+		uploadedFiles.push(f);
+
+		uploadFile(files[0], (sent, total) => {
+			const entry = uploadedFiles.find((file) => file.id === f.id);
+			if (entry) {
+				entry.progress = sent / total;
 			}
-		});
+		}).then(
+			(res) => {
+				const entry = uploadedFiles.find((file) => file.id === f.id)!;
+				if (res.success) {
+					entry.info = { ...res.data };
+					entry.target = res.data.targets[0];
+					entry.status = 'done';
+				} else {
+					entry.error = res.detail;
+					entry.status = 'error';
+				}
+			},
+			(err) => {
+				const entry = uploadedFiles.find((file) => file.id === f.id)!;
+				entry.error = err.detail;
+				entry.status = 'error';
+			}
+		);
 	}
 
 	function convert() {
 		conversion = true;
 		uploadedFiles
-			.filter((file) => !file.promise)
+			.filter((file) => file.status === 'done')
+			.filter((file) => !file.convPromise)
 			.forEach((file) => {
-				startConversion(file.handle, file.target).then((res) => {
+				const handle = file.info!.handle;
+				startConversion(handle, file.target!).then((res) => {
 					if (res.success) {
-						file.promise = fetchJobStatus(file.handle).then((r) => {
+						file.convPromise = fetchJobStatus(handle).then((r) => {
 							if (!r.success) throw r;
 							return r.data;
 						});
 					} else {
-						errors.push(res);
+						file.error = res.detail;
+						file.status = 'error';
 					}
 				});
 			});
 	}
 
-	function remove(file: FileUpload) {
-		uploadedFiles = uploadedFiles.filter((f) => f !== file);
+	function remove(id: string) {
+		uploadedFiles = uploadedFiles.filter((f) => f.id !== id);
 	}
 </script>
 
@@ -72,43 +106,55 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each uploadedFiles as file (file.handle)}
+				{#each uploadedFiles as file (file.id)}
 					<tr>
 						<td>{file.name}</td>
-						<td>{file.detectedSource}</td>
-						<td>
-							{#if file.promise !== undefined}
-								{file.target}
-							{:else}
-								<select bind:value={file.target}>
-									{#each file.targets as target (target)}
-										<option value={target}>{target}</option>
-									{/each}
-								</select>
-							{/if}
-						</td>
-						{#if conversion}
+						{#if file.status === 'uploading'}
+							<td colspan="2"><span aria-busy="true">Uploading...</span></td>
 							<td>
-								{#await file.promise}
-									Converting...
-								{:then jobStatus}
-									{#if jobStatus?.status === 'done'}
-										<a
-											href="/api/file-converter/{file.handle}/download"
-											target="_blank"
-											rel="external">Download</a
-										>
-									{:else}
-										{JSON.stringify(jobStatus)}
-									{/if}
-								{:catch pd}
-									{pd.detail}
-								{/await}
+								<progress value={file.progress} max="1"></progress>
+							</td>
+						{:else if file.status === 'error'}
+							<td colspan="2">{file.error}</td>
+							<td>
+								<Trash class="interactive-icon" onclick={() => remove(file.id)} />
 							</td>
 						{:else}
+							<td>{file.info!.detectedSource}</td>
 							<td>
-								<Trash class="interactive-icon" onclick={() => remove(file)} />
+								{#if file.convPromise !== undefined}
+									{file.target}
+								{:else}
+									<select bind:value={file.target}>
+										{#each file.info!.targets as target (target)}
+											<option value={target}>{target}</option>
+										{/each}
+									</select>
+								{/if}
 							</td>
+							{#if conversion}
+								<td>
+									{#await file.convPromise}
+										<span aria-busy="true">Converting...</span>
+									{:then jobStatus}
+										{#if jobStatus?.status === 'done'}
+											<a
+												href="/api/file-converter/{file.info!.handle}/download"
+												target="_blank"
+												rel="external">Download</a
+											>
+										{:else}
+											<span aria-busy="true">Converting...</span>
+										{/if}
+									{:catch pd}
+										{pd.detail}
+									{/await}
+								</td>
+							{:else}
+								<td>
+									<Trash class="interactive-icon" onclick={() => remove(file.id)} />
+								</td>
+							{/if}
 						{/if}
 					</tr>
 				{/each}
