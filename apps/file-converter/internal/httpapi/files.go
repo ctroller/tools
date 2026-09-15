@@ -16,8 +16,38 @@ type Result struct {
 	Targets        []convert.MediaType `json:"targets"`
 }
 
+// detectAndSubmit detects the media type of file, checks it is supported, and submits it as a
+// new conversion job. unsupportedMediaType builds the error detail for an unsupported type.
+func (a *API) detectAndSubmit(w http.ResponseWriter, file io.ReadSeeker, unsupportedMediaType func(t string) string) (Result, bool) {
+	t, err := mimetype.DetectReader(file)
+	if err != nil {
+		HttpProblemISE(w, "Failed to detect mimetype", err)
+		return Result{}, false
+	}
+	if _, err = file.Seek(0, io.SeekStart); err != nil {
+		HttpProblemISE(w, "Failed to reset file", err)
+		return Result{}, false
+	}
+
+	source := convert.MediaType(t.String())
+	targets, found := a.registry.Supports(source)
+	if !found {
+		HttpProblem(w, "", "Unsupported media type", http.StatusUnsupportedMediaType, unsupportedMediaType(t.String()))
+		return Result{}, false
+	}
+
+	res, err := a.intake.Submit(file, source)
+	if err != nil {
+		HttpProblemISE(w, "Failed to submit file", err)
+		return Result{}, false
+	}
+
+	return Result{Handle: res.JobID, DetectedSource: source, Targets: targets}, true
+}
+
 func (a *API) Files(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseMultipartForm(25 << 20)
+	r.Body = http.MaxBytesReader(w, r.Body, a.config.MaxFileSizeBytes)
+	err := r.ParseMultipartForm(a.config.MaxFileSizeBytes)
 	if r.MultipartForm != nil {
 		defer func(MultipartForm *multipart.Form) {
 			err := MultipartForm.RemoveAll()
@@ -44,28 +74,12 @@ func (a *API) Files(w http.ResponseWriter, r *http.Request) {
 		}
 	}(file)
 
-	mtype, err := mimetype.DetectReader(file)
-	if err != nil {
-		HttpProblemISE(w, "Failed to detect mimetype", err)
-		return
-	}
-	if _, err = file.Seek(0, io.SeekStart); err != nil {
-		HttpProblemISE(w, "Failed to reset file", err)
+	result, ok := a.detectAndSubmit(w, file, func(t string) string {
+		return "The uploaded file " + handle.Filename + " has an unsupported media type (" + t + ")"
+	})
+	if !ok {
 		return
 	}
 
-	source := convert.MediaType(mtype.String())
-	targets, found := a.registry.Supports(source)
-	if !found {
-		HttpProblem(w, "", "Unsupported media type", http.StatusUnsupportedMediaType, "The uploaded file "+handle.Filename+" has an unsupported media type ("+mtype.String()+")")
-		return
-	}
-
-	res, err := a.intake.Submit(file, source)
-	if err != nil {
-		HttpProblemISE(w, "Failed to submit file", err)
-		return
-	}
-
-	RenderJSON(w, Response[Result]{Data: Result{Handle: res.JobID, DetectedSource: source, Targets: targets}})
+	RenderJSON(w, Response[Result]{Data: result})
 }

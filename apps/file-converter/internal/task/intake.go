@@ -3,7 +3,7 @@ package task
 import (
 	"io"
 	"log/slog"
-	"mime/multipart"
+	"os"
 	"uuid"
 
 	"trox.dev/file-converter/internal/common"
@@ -48,7 +48,7 @@ func (intake *JobIntake) Submit(reader io.Reader, source convert.MediaType) (Job
 	if err != nil {
 		return JobResult{}, err
 	}
-	defer func(dst multipart.File) {
+	defer func(dst *os.File) {
 		err := dst.Close()
 		if err != nil {
 			slog.Error("Failed to close file", "err", err)
@@ -101,4 +101,11 @@ func (intake *JobIntake) Lookup(id string) (JobResult, bool) {
 	}
 
 	return intake.store.Get(id)
+}
+
+// Delete atomically removes the job's record if its status is deletable, avoiding a race
+// with a concurrent StartJob transitioning it out of a deletable status. It returns the
+// record as it stood, whether it was found, and whether it was removed.
+func (intake *JobIntake) Delete(id string) (JobResult, bool, bool) {
+	return intake.store.CompareAndDelete(id)
 }

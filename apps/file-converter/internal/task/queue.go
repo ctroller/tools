@@ -59,7 +59,7 @@ func (q *Queue) process(ctx context.Context, job Job) {
 	name, err := q.executor.Run(ctx, job)
 	if err != nil {
 		slog.Error("failed to process job", "id", job.ID, "err", err)
-		q.store.Set(job.ID, JobResult{JobID: job.ID, Status: StatusFailed, Err: err})
+		q.store.Set(job.ID, JobResult{JobID: job.ID, Status: StatusFailed, Err: err, FilePath: job.FilePath})
 		return
 	}
 

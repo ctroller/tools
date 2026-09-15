@@ -55,6 +55,10 @@ func (fs *FileStore) Delete(name string) {
 	}
 }
 
+func (fs *FileStore) DeleteFile(file *os.File) {
+	fs.Delete(file.Name())
+}
+
 func (fj *FileJanitor) Start() {
 	fj.cleanupTicker = time.NewTicker(fj.cleanupInterval)
 	go func() {
@@ -69,6 +73,7 @@ func (fj *FileJanitor) Stop() {
 }
 
 func (fj *FileJanitor) cleanup() {
+	slog.Info("cleaning up expired files")
 	entries, err := os.ReadDir(fj.store.path)
 	if err != nil {
 		slog.Warn("failed to read directory", "dir", fj.store.path, "err", err)

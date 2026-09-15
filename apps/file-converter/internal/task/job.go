@@ -31,6 +31,10 @@ func (s JobStatus) Done() bool {
 	return s == StatusDone || s == StatusFailed
 }
 
+func (s JobStatus) Deleteable() bool {
+	return s == StatusUploaded || s == StatusDone || s == StatusFailed
+}
+
 type JobResult struct {
 	JobID    string
 	FilePath string

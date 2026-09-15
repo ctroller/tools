@@ -12,10 +12,10 @@
 		$props();
 </script>
 
-<a aria-label={name} class="tool-tag" href={resolve(href)}>
+<a aria-label={name} class="tool-tag contrast" href={resolve(href)}>
 	<span aria-hidden="true" class="grommet"></span>
 	<span class="part-number">#{partNumber}</span>
-	<span class="name">{name}</span>
+	<h3>{name}</h3>
 	<span class="description">{description}</span>
 	<div class="tags">
 		{#each tags as tag (tag)}
@@ -81,15 +81,7 @@
 		color: var(--pico-primary);
 	}
 
-	.name {
-		font-family: 'Allerta Stencil', monospace;
-		font-size: 1.15rem;
-		text-transform: uppercase;
-		letter-spacing: 0.03em;
-	}
-
 	.description {
 		font-size: 0.7rem;
-		color: var(--pico-color);
 	}
 </style>

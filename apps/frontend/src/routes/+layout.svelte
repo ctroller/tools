@@ -9,7 +9,7 @@
 </script>
 
 <SiteHeader />
-<main class="container-fluid" id="main">
+<main class="container" id="main">
 	{@render children()}
 </main>
 <SiteFooter />

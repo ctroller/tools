@@ -25,24 +25,28 @@
 
 <svelte:window on:load={load} />
 
-<div class="tag-filters">
-	{#each allTags as { tag, count } (tag)}
-		<button
-			type="button"
-			class="tag-filter"
-			class:active={filters.includes(tag)}
-			aria-pressed={filters.includes(tag)}
-			onclick={() => toggleFilter(tag)}
-			>{tag} ({count})
-		</button>
-	{/each}
-</div>
+<section>
+	<div class="tag-filters">
+		{#each allTags as { tag, count } (tag)}
+			<button
+				type="button"
+				class="tag-filter"
+				class:active={filters.includes(tag)}
+				aria-pressed={filters.includes(tag)}
+				onclick={() => toggleFilter(tag)}
+				>{tag} ({count})
+			</button>
+		{/each}
+	</div>
+</section>
 
-<div class="tool-grid">
-	{#each filtered as tool (tool.href)}
-		<ToolTag {...tool} />
-	{/each}
-</div>
+<section>
+	<div class="tool-grid">
+		{#each filtered as tool (tool.href)}
+			<ToolTag {...tool} />
+		{/each}
+	</div>
+</section>
 
 <style>
 	.tag-filters {

@@ -11,22 +11,14 @@ import (
 	"syscall"
 	"time"
 
+	"trox.dev/file-converter/internal/config"
 	"trox.dev/file-converter/internal/convert"
 	"trox.dev/file-converter/internal/httpapi"
 	"trox.dev/file-converter/internal/task"
 )
 
-type HTTPConfig struct {
-	Port    int
-	Address string
-}
-
-type Config struct {
-	HTTP HTTPConfig
-}
-
 type Application struct {
-	Config    *Config
+	Config    *config.Config
 	Registry  *convert.Registry
 	Server    *http.Server
 	JQueue    *task.Queue
@@ -97,14 +89,13 @@ func main() {
 	slog.Info("Application stopped successfully")
 }
 
-func readConfig() *Config {
+func readConfig() *config.Config {
 	slog.Info("Reading config...")
 
-	cfg := &Config{
-		HTTP: HTTPConfig{
-			Port:    8080,
-			Address: "0.0.0.0",
-		},
+	cfg := &config.Config{
+		Port:             8080,
+		Address:          "0.0.0.0",
+		MaxFileSizeBytes: 25 << 20,
 	}
 
 	slog.Info("Config initialized")
@@ -132,8 +123,8 @@ func (app *Application) setupRegistry() error {
 
 func (app *Application) setupHTTP() {
 	app.Server = &http.Server{
-		Addr:              app.Config.HTTP.Address + ":" + strconv.Itoa(app.Config.HTTP.Port),
-		Handler:           httpapi.NewRouter(app.Registry, app.JIntake),
+		Addr:              app.Config.Address + ":" + strconv.Itoa(app.Config.Port),
+		Handler:           httpapi.NewRouter(app.Config, app.Registry, app.JIntake, app.FStore),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,

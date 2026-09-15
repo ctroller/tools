@@ -75,6 +75,22 @@ export const fetchJobStatus = async (handle: string): Promise<ApiResponse<JobSta
 	);
 };
 
+export const deleteJob = async (handle: string): Promise<ApiResponse<null>> => {
+	return toEmptyApiResponse(
+		fetch(`${BASE_URL}/files/${encodeURIComponent(handle)}`, {
+			method: 'DELETE'
+		})
+	);
+};
+
+export const downloadUrl = async (url: string): Promise<ApiResponse<UploadResult>> => {
+	return toApiResponse(
+		fetch(`${BASE_URL}/download-url?url=${encodeURIComponent(url)}`, {
+			method: 'GET'
+		})
+	);
+};
+
 async function toApiResponse<T>(res: Promise<Response>): Promise<ApiResponse<T>> {
 	const r = await res.catch(() => undefined);
 	if (!r) {

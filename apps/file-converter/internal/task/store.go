@@ -52,6 +52,22 @@ func (s *StatusStore) CompareAndSwapStatus(id string, from, to JobStatus) (resul
 	return r, true, true
 }
 
+// CompareAndDelete removes the record for id if it exists and its status is deletable.
+// It returns the record as it stood, whether it was found, and whether it was removed.
+func (s *StatusStore) CompareAndDelete(id string) (result JobResult, found, deleted bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.data[id]
+	if !ok {
+		return JobResult{}, false, false
+	}
+	if !r.Status.Deleteable() {
+		return r, true, false
+	}
+	delete(s.data, id)
+	return r, true, true
+}
+
 func (s *StatusStore) Get(id string) (JobResult, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

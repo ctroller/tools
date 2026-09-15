@@ -36,23 +36,30 @@
 		dragCount = 0;
 	};
 
-	let { ondrop = () => {} }: { ondrop: (files: File[]) => void } = $props();
+	let {
+		ondrop = () => {},
+		onpaste = undefined
+	}: { ondrop: (files: File[]) => void; onpaste?: (data: DataTransfer | null) => void } = $props();
 </script>
 
 <svelte:body
 	on:paste={(e) => {
-		let files: File[] = [...(e.clipboardData?.files || [])];
-		if (files.length > 0) {
+		const target = e.target;
+		const isEditable =
+			target instanceof HTMLInputElement ||
+			target instanceof HTMLTextAreaElement ||
+			(target instanceof HTMLElement && target.isContentEditable);
+		if (!isEditable && onpaste) {
 			prevent(e);
-			ondrop(files);
+			onpaste(e.clipboardData);
 		}
 	}}
 />
 
 <form
-	action=""
 	class="box"
 	class:has-advanced-upload={advancedUpload}
+	action=""
 	class:is-dragover={dragCount > 0}
 	enctype="multipart/form-data"
 	method="post"
@@ -81,8 +88,13 @@
 			<span class="icon">
 				<FilePlusCorner size={64} />
 			</span>
-			<strong>Choose a file</strong> <span class="box__dragdrop">or drag it here</span>.</label
-		>
+			<p>
+				<strong>Choose a file</strong> <span class="box__dragdrop">or drag it here</span>.
+				{#if onpaste}
+					<br /><span class="box__dragdrop"> Pasting data is allowed.</span>
+				{/if}
+			</p>
+		</label>
 	</div>
 </form>
 
@@ -91,7 +103,6 @@
 		font-family: var(--pico-font-family), sans-serif;
 		max-width: 32rem;
 		margin: 0 auto;
-		padding: 2rem 1.5rem;
 		text-align: center;
 		color: var(--pico-secondary);
 		border: 1px solid var(--pico-muted-border-color);
@@ -112,24 +123,12 @@
 			outline-color 0.15s ease;
 	}
 
-	.box.has-advanced-upload .box__dragdrop {
-		display: inline;
-	}
-
-	.box__input {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.6rem;
+	label {
+		padding: 2rem;
 	}
 
 	.box__file {
-		width: 0.1px;
-		height: 0.1px;
-		opacity: 0;
-		overflow: hidden;
-		position: absolute;
-		z-index: -1;
+		display: none;
 	}
 
 	label {
