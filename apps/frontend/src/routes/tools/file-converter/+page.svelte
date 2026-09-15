@@ -28,6 +28,7 @@
 		info?: FileInfo;
 		target?: string;
 		convPromise?: Promise<JobStatusResult>;
+		converted?: boolean;
 	}
 
 	let uploadedFiles: FileUpload[] = $state([]);
@@ -116,10 +117,11 @@
 	function convert() {
 		conversion = true;
 		uploadedFiles
-			.filter((file) => file.info !== undefined)
+			.filter((file) => file.info !== undefined && !file.converted)
 			.forEach((file) => {
 				const handle = file.info!.handle;
 				startConversion(handle, file.target!).then((res) => {
+					file.converted = true;
 					if (res.success) {
 						file.convPromise = fetchJobStatus(handle).then((r) => {
 							if (!r.success) throw r;
@@ -218,7 +220,8 @@
 						<td colspan="4">
 							<button
 								onclick={convert}
-								disabled={uploadedFiles.filter((f) => f.info !== undefined).length === 0}
+								disabled={uploadedFiles.filter((f) => f.info !== undefined && !f.converted)
+									.length === 0}
 								>Convert Files
 							</button>
 						</td>

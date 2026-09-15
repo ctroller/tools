@@ -44,14 +44,16 @@
 
 <svelte:body
 	on:paste={(e) => {
-		const target = e.target;
-		const isEditable =
-			target instanceof HTMLInputElement ||
-			target instanceof HTMLTextAreaElement ||
-			(target instanceof HTMLElement && target.isContentEditable);
-		if (!isEditable && onpaste) {
-			prevent(e);
-			onpaste(e.clipboardData);
+		if (onpaste) {
+			const target = e.target;
+			const isEditable =
+				target instanceof HTMLInputElement ||
+				target instanceof HTMLTextAreaElement ||
+				(target instanceof HTMLElement && target.isContentEditable);
+			if (!isEditable) {
+				prevent(e);
+				onpaste(e.clipboardData);
+			}
 		}
 	}}
 />
