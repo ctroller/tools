@@ -1,17 +1,18 @@
 package httpapi
 
 import (
+	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 )
 
-type Problem struct {
+type ProblemDetails struct {
 	Type     string `json:"type"`
 	Title    string `json:"title"`
 	Status   int    `json:"status"`
 	Detail   string `json:"detail,omitempty"`
 	Instance string `json:"instance,omitempty"`
-	Data     any    `json:"data,omitempty"`
 }
 
 func HttpProblemISE(w http.ResponseWriter, errMsg string, err error) {
@@ -25,13 +26,14 @@ func HttpProblem(w http.ResponseWriter, pType, title string, status int, detail 
 		t = "about:blank"
 	}
 
-	problem := Problem{
-		Type:     t,
-		Title:    title,
-		Status:   status,
-		Detail:   detail,
-		Instance: "",
+	problem := ProblemDetails{
+		Type:   t,
+		Title:  title,
+		Status: status,
+		Detail: detail,
 	}
 
-	RenderJSONStatus(w, problem, "application/problem+json", status)
+	Render(w, "application/problem+json", status, func(w io.Writer) error {
+		return json.NewEncoder(w).Encode(problem)
+	})
 }

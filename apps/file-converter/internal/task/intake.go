@@ -3,7 +3,9 @@ package task
 import (
 	"io"
 	"log/slog"
-	"mime/multipart"
+	"os"
+	"path/filepath"
+	"strings"
 	"uuid"
 
 	"trox.dev/file-converter/internal/common"
@@ -23,19 +25,25 @@ func NewJobIntake(registry *convert.Registry, queue *Queue, store *StatusStore, 
 	}
 }
 
-func (intake *JobIntake) prepare(path, id string, src convert.MediaType) JobResult {
+func (intake *JobIntake) prepare(path, id string, src convert.MediaType, originalFileName string) JobResult {
+	originalFileName = strings.TrimSuffix(originalFileName, filepath.Ext(originalFileName))
+	if originalFileName == "" || originalFileName == "/" || originalFileName == "." {
+		originalFileName = "download"
+	}
+
 	result := JobResult{
 		JobID:    id,
 		Status:   StatusUploaded,
 		FilePath: path,
-		source:   src,
+		Source:   src,
+		BaseName: originalFileName,
 	}
 	intake.store.Set(id, result)
 
 	return result
 }
 
-func (intake *JobIntake) Submit(reader io.Reader, source convert.MediaType) (JobResult, error) {
+func (intake *JobIntake) Submit(reader io.Reader, source convert.MediaType, originalFileName string) (JobResult, error) {
 	id := uuid.New().String()
 	for _, found := intake.store.Get(id); found; {
 		id = uuid.New().String()
@@ -48,7 +56,7 @@ func (intake *JobIntake) Submit(reader io.Reader, source convert.MediaType) (Job
 	if err != nil {
 		return JobResult{}, err
 	}
-	defer func(dst multipart.File) {
+	defer func(dst *os.File) {
 		err := dst.Close()
 		if err != nil {
 			slog.Error("Failed to close file", "err", err)
@@ -60,7 +68,7 @@ func (intake *JobIntake) Submit(reader io.Reader, source convert.MediaType) (Job
 		return JobResult{}, err
 	}
 
-	return intake.prepare(dst.Name(), id, source), nil
+	return intake.prepare(dst.Name(), id, source, originalFileName), nil
 }
 
 func (intake *JobIntake) StartJob(id string, target convert.MediaType) error {
@@ -72,11 +80,16 @@ func (intake *JobIntake) StartJob(id string, target convert.MediaType) error {
 		return common.IllegalStateErr{Msg: "job not ready"}
 	}
 
-	conv, found := intake.registry.Lookup(res.source, target)
+	conv, found := intake.registry.Lookup(res.Source, target)
 	if !found {
 		intake.store.SetStatus(id, StatusUploaded)
 		return common.NotFoundErr{Msg: "target converter not found"}
 	}
+
+	intake.store.Update(id, func(res JobResult) JobResult {
+		res.Target = target
+		return res
+	})
 
 	job := Job{
 		ID:        id,
@@ -96,5 +109,16 @@ func (intake *JobIntake) StartJob(id string, target convert.MediaType) error {
 }
 
 func (intake *JobIntake) Lookup(id string) (JobResult, bool) {
+	if id == "" {
+		return JobResult{}, false
+	}
+
 	return intake.store.Get(id)
+}
+
+// Delete atomically removes the job's record if its status is deletable, avoiding a race
+// with a concurrent StartJob transitioning it out of a deletable status. It returns the
+// record as it stood, whether it was found, and whether it was removed.
+func (intake *JobIntake) Delete(id string) (JobResult, bool, bool) {
+	return intake.store.CompareAndDelete(id)
 }

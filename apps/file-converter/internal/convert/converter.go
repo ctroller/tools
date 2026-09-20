@@ -5,8 +5,6 @@ import (
 	"io"
 )
 
-type MediaType string
-
 // Lifecycle interface for converters that need custom handling (allocating / freeing resources, config, ...)
 type Lifecycle interface {
 	Start() error

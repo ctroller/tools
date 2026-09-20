@@ -2,3 +2,5 @@
 *.md
 Dockerfile
 .dockerignore
+tmp/
+upload/

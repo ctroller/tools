@@ -11,8 +11,8 @@ Personal homelab toolbox platform. The primary goal is improving cloud-native sk
 ```
 apps/<tool>/          # one service per tool (own Dockerfile)
 deploy/<tool>/        # k8s manifests for that tool (mirrors apps/ layout)
-compose-workspace.yaml  # dev environment (workspace devcontainer + tool services)
-.devcontainer/        # VS Code devcontainer config
+docker-compose.yaml   # dev environment (each tool's `dev` stage, no devcontainer)
+mise.toml             # pinned Go/Bun versions, for WSL editor tooling only
 ```
 
 `deploy/` is structured for GitOps (future Argo/Flux points here, no reshuffle needed).
@@ -26,16 +26,21 @@ Each tool is a standalone app under `apps/<tool>/`. See individual README/AGENTS
 
 ## Dev environment
 
-Start the workspace with Docker Compose:
+Editor attaches to the WSL distro directly (VS Code Remote-WSL). No devcontainer.
+
+Per-tool containers run the dev servers. Each `apps/<tool>/Dockerfile` has a `dev` stage (hot reload, debugger port,
+source bind-mounted at runtime) next to its `prod` stage. `mise.toml` pins the same Go and Bun versions for WSL-side
+editor tooling only (type-checking, autocomplete, go-to-definition) — it never runs a dev server itself. Full design:
+`docs/superpowers/specs/2026-09-12-local-dev-environment-design.md`.
+
+Start every tool's dev container with Docker Compose:
 
 ```bash
-docker compose -f compose-workspace.yaml up -d
+docker compose up -d
 ```
 
-Attach VS Code to the `workspace` service (devcontainer). Tool services (e.g. `file-converter`) are defined as separate Compose services alongside `workspace` — uncomment them in `compose-workspace.yaml` as tools are built.
-
-Devcontainer ships: Go 1.26, Node 26, kubectl. No Helm or Minikube.
-**Not yet added:** Bun (frontend runtime/package manager, see the frontend design spec) — needed before `apps/frontend/` can build.
+Tool services (`file-converter`, `frontend`) are defined in `docker-compose.yaml`, each built from that tool's `dev`
+stage.
 
 ## Routing contract (prod and dev parity)
 

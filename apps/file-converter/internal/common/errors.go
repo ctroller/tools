@@ -1,17 +1,21 @@
 package common
 
-type NotFoundErr struct {
+type SimpleErr struct {
 	Msg string
+}
+
+type NotFoundErr struct {
+	SimpleErr
+}
+
+type NotAllowedErr struct {
+	SimpleErr
 }
 
 type IllegalStateErr struct {
-	Msg string
+	SimpleErr
 }
 
-func (e NotFoundErr) Error() string {
-	return e.Msg
-}
-
-func (e IllegalStateErr) Error() string {
+func (e SimpleErr) Error() string {
 	return e.Msg
 }

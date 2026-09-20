@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ToolTag from '$lib/components/ToolTag.svelte';
-	import {type Tool, Tools} from '$lib/tools';
+	import { type Tool, Tools } from '$lib/tools';
 
 	let filters: string[] = $state([]);
 
@@ -9,34 +9,44 @@
 	}
 
 	let filtered: Tool[] = $derived(
-			Tools.filter((tool) => filters.every((tag) => tool.tags.includes(tag)))
+		Tools.filter((tool) => filters.every((tag) => tool.tags.includes(tag)))
 	);
 
 	let allTags: { tag: string; count: number }[] = $derived(
-			Array.from(new Set(Tools.flatMap((tool) => tool.tags)))
-					.sort((a, b) => a.localeCompare(b))
-					.map((tag) => ({tag, count: filtered.filter((tool) => tool.tags.includes(tag)).length}))
+		Array.from(new Set(Tools.flatMap((tool) => tool.tags)))
+			.sort((a, b) => a.localeCompare(b))
+			.map((tag) => ({ tag, count: filtered.filter((tool) => tool.tags.includes(tag)).length }))
 	);
+
+	const load = async () => {
+		await fetch('/api/file-converter/formats');
+	};
 </script>
 
-<div class="tag-filters">
-	{#each allTags as {tag, count} (tag)}
-		<button
+<svelte:window on:load={load} />
+
+<section>
+	<div class="tag-filters">
+		{#each allTags as { tag, count } (tag)}
+			<button
 				type="button"
 				class="tag-filter"
 				class:active={filters.includes(tag)}
 				aria-pressed={filters.includes(tag)}
-				onclick={() => toggleFilter(tag)}>{tag} ({count})
-		</button
-		>
-	{/each}
-</div>
+				onclick={() => toggleFilter(tag)}
+				>{tag} ({count})
+			</button>
+		{/each}
+	</div>
+</section>
 
-<div class="tool-grid">
-	{#each filtered as tool (tool.href)}
-		<ToolTag {...tool}/>
-	{/each}
-</div>
+<section>
+	<div class="tool-grid">
+		{#each filtered as tool (tool.href)}
+			<ToolTag {...tool} />
+		{/each}
+	</div>
+</section>
 
 <style>
 	.tag-filters {
@@ -48,8 +58,6 @@
 	}
 
 	.tag-filter {
-		background: #4a4740;
-		color: #ede7da;
 		font-size: 0.75rem;
 		line-height: normal;
 		padding: 0.2rem 0.5rem;
@@ -59,8 +67,8 @@
 	}
 
 	.tag-filter.active {
-		background: #d9531e;
-		color: #1c1b19;
+		background-color: var(--pico-primary);
+		color: var(--pico-color);
 	}
 
 	.tool-grid {

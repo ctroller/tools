@@ -1,0 +1,168 @@
+<script lang="ts">
+	import { FilePlusCorner } from '@lucide/svelte';
+
+	const advancedUpload = () => {
+		const div = document.createElement('div');
+		const isDragDropSupported = 'draggable' in div || ('ondragstart' in div && 'ondrop' in div);
+
+		const isFormDataSupported = 'FormData' in window;
+		const isFileReaderSupported = 'FileReader' in window;
+
+		return isDragDropSupported && isFormDataSupported && isFileReaderSupported;
+	};
+
+	const prevent = (e: Event) => {
+		e.preventDefault();
+		e.stopPropagation();
+	};
+
+	let dragCount = $state(0);
+
+	const ondragenter = (e: Event) => {
+		prevent(e);
+		dragCount++;
+	};
+
+	const ondragleave = (e: Event) => {
+		prevent(e);
+		dragCount--;
+		if (dragCount <= 0) {
+			dragCount = 0;
+		}
+	};
+
+	const ondragend = (e: Event) => {
+		prevent(e);
+		dragCount = 0;
+	};
+
+	let {
+		ondrop = () => {},
+		onpaste = undefined
+	}: { ondrop: (files: File[]) => void; onpaste?: (data: DataTransfer | null) => void } = $props();
+</script>
+
+<svelte:body
+	on:paste={(e) => {
+		if (onpaste) {
+			const target = e.target;
+			const isEditable =
+				target instanceof HTMLInputElement ||
+				target instanceof HTMLTextAreaElement ||
+				(target instanceof HTMLElement && target.isContentEditable);
+			if (!isEditable) {
+				prevent(e);
+				onpaste(e.clipboardData);
+			}
+		}
+	}}
+/>
+
+<form
+	class="box"
+	class:has-advanced-upload={advancedUpload}
+	action=""
+	class:is-dragover={dragCount > 0}
+	enctype="multipart/form-data"
+	method="post"
+	ondrag={prevent}
+	{ondragend}
+	{ondragenter}
+	{ondragleave}
+	ondragover={prevent}
+	ondragstart={prevent}
+	ondrop={(e) => {
+		ondragend(e);
+		const f: File[] = Array.from(e.dataTransfer?.files ?? []);
+		ondrop(f);
+	}}
+>
+	<div class="box__input">
+		<input
+			class="box__file"
+			id="file"
+			multiple
+			name="files[]"
+			onchange={(e) => ondrop(Array.from((e?.target as HTMLInputElement)?.files ?? []))}
+			type="file"
+		/>
+		<label for="file">
+			<span class="icon">
+				<FilePlusCorner size={64} />
+			</span>
+			<p>
+				<strong>Choose a file</strong> <span class="box__dragdrop">or drag it here</span>.
+				{#if onpaste}
+					<br /><span class="box__dragdrop"> Pasting data is allowed.</span>
+				{/if}
+			</p>
+		</label>
+	</div>
+</form>
+
+<style>
+	.box {
+		font-family: var(--pico-font-family), sans-serif;
+		max-width: 32rem;
+		margin: 0 auto;
+		text-align: center;
+		color: var(--pico-secondary);
+		border: 1px solid var(--pico-muted-border-color);
+		border-radius: var(--pico-border-radius);
+		background-color: var(--pico-secondary-background);
+	}
+
+	.box strong {
+		color: var(--pico-secondary-inverse);
+	}
+
+	.box.has-advanced-upload {
+		border-color: transparent;
+		outline: 2px dashed var(--pico-primary);
+		outline-offset: -10px;
+		transition:
+			background-color 0.15s ease,
+			outline-color 0.15s ease;
+	}
+
+	label {
+		padding: 2rem;
+	}
+
+	.box__file {
+		display: none;
+	}
+
+	label {
+		cursor: pointer;
+		font-size: 0.95rem;
+	}
+
+	label strong {
+		color: var(--pico-primary);
+		text-decoration: underline;
+	}
+
+	.box__file:focus-visible + label {
+		outline: 2px solid var(--pico-primary);
+		outline-offset: 4px;
+	}
+
+	.box.is-dragover {
+		background-color: var(--pico-secondary-hover);
+		outline-color: var(--pico-secondary);
+	}
+
+	.box.is-dragover .icon {
+		color: var(--pico-secondary);
+	}
+
+	.box.is-dragover span {
+		color: var(--pico-secondary-inverse);
+	}
+
+	.icon {
+		display: block;
+		color: var(--pico-primary);
+	}
+</style>

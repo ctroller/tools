@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type {Snippet} from 'svelte';
+	import type { Snippet } from 'svelte';
 	import '$lib/styles/fonts.css';
 	import '$lib/styles/theme.css';
 	import SiteHeader from '$lib/components/SiteHeader.svelte';
@@ -9,10 +9,10 @@
 </script>
 
 <SiteHeader />
-<main class="container-fluid">
+<main class="container" id="main">
 	{@render children()}
 </main>
-<SiteFooter/>
+<SiteFooter />
 
 <style>
 	main {

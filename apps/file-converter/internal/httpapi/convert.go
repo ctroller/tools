@@ -39,6 +39,5 @@ func (a *API) Convert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Location", "/files/"+handle)
 	w.WriteHeader(http.StatusAccepted)
 }

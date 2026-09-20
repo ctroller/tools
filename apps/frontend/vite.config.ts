@@ -11,11 +11,15 @@ export default defineConfig({
 		conditions: ['browser']
 	},
 	server: {
+		port: 3000,
+		strictPort: true,
 		proxy: {
-			'/api': {
-				target: process.env.API_PROXY_TARGET ?? 'http://localhost:8080',
+			'/api/file-converter': {
+				target: process.env.FC_PROXY_TARGET ?? 'http://localhost:8080',
 				changeOrigin: true,
-				rewrite: (path) => path.replace(/^\/api\/[^/]+/, '')
+				rewrite: (path) => {
+					return path.replaceAll(/^\/api\/file-converter/g, '');
+				}
 			}
 		}
 	}

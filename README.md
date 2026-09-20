@@ -5,3 +5,14 @@ just some skill honing and refining, learning new stuff
 ## AI Usage
 
 Claude was used primarily as an architecture and code review feedback tool. Most non-boilerplate code is hand-written.
+
+## Tools / Ideas
+
+* File converter
+* Video downloader
+* Goblin Tools
+* String manipulation
+* Cryptography
+* Image manipulation
+* Text summarization
+* 
