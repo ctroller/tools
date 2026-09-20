@@ -16,7 +16,7 @@ const (
 )
 
 const (
-	ExtJPEG = ".jpeg"
+	ExtJPEG = ".jpg"
 	ExtPNG  = ".png"
 	ExtGIF  = ".gif"
 	ExtAVIF = ".avif"

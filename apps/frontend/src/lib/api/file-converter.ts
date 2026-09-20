@@ -1,5 +1,7 @@
 import type { ApiResponse, ResponseError } from '$lib/response-types';
 
+const BASE_URL = '/api/file-converter';
+
 export interface UploadResult {
 	handle: string;
 	detectedSource: string;
@@ -7,12 +9,15 @@ export interface UploadResult {
 	name: string;
 }
 
-export interface JobStatusResult {
-	status: 'uploaded' | 'pending' | 'processing' | 'failed' | 'done';
+export type JobStatus = 'uploaded' | 'pending' | 'processing' | 'done' | 'failed';
+
+export interface JobUpdate {
+	status: JobStatus;
 	error?: string;
 }
 
-const BASE_URL = '/api/file-converter';
+export const downloadHref = (handle: string): string =>
+	`${BASE_URL}/files/${encodeURIComponent(handle)}/download`;
 
 export const uploadFile = async (
 	file: File,
@@ -67,13 +72,40 @@ export const startConversion = async (
 	);
 };
 
-export const fetchJobStatus = async (handle: string): Promise<ApiResponse<JobStatusResult>> => {
-	return toApiResponse(
-		fetch(`${BASE_URL}/files/${encodeURIComponent(handle)}`, {
-			method: 'GET'
-		})
-	);
+// The server wraps the payload in { data }. Throws when the message has another shape.
+const parseJobUpdate = (raw: string): JobUpdate => {
+	const { data } = JSON.parse(raw) as { data?: JobUpdate | null };
+	if (typeof data?.status !== 'string') {
+		throw new Error('Job update has no status');
+	}
+	return data;
 };
+
+export function watchJob(handle: string, onUpdate: (u: JobUpdate) => void): () => void {
+	const es = new EventSource(`${BASE_URL}/files/${encodeURIComponent(handle)}/events`);
+
+	es.onmessage = (e) => {
+		let update: JobUpdate;
+		try {
+			update = parseJobUpdate(e.data);
+		} catch {
+			onUpdate({ status: 'failed', error: 'Invalid server response' });
+			es.close();
+			return;
+		}
+
+		onUpdate(update);
+		if (update.status === 'done' || update.status === 'failed') es.close(); // stops the reconnection loop
+	};
+
+	es.onerror = () => {
+		if (es.readyState === EventSource.CLOSED) {
+			onUpdate({ status: 'failed', error: 'Lost connection' });
+		}
+	};
+
+	return () => es.close();
+}
 
 export const deleteJob = async (handle: string): Promise<ApiResponse<null>> => {
 	return toEmptyApiResponse(

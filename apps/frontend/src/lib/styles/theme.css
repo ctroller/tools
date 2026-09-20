@@ -8,7 +8,6 @@
     --pico-chapter-color: var(--pico-code-tag);
 }
 
-
 /* Keeps the footer pinned to the viewport bottom on short pages instead of
    floating right under sparse content. */
 html,
@@ -34,16 +33,16 @@ h3 {
     color: var(--pico-primary);
     font-weight: 600;
     font-size: 13px;
-    letter-spacing: .0625em;
+    letter-spacing: 0.0625em;
     text-transform: uppercase;
 }
 
 main > hgroup p.chapter {
-    margin-bottom: calc(var(--pico-spacing) * .25)
+    margin-bottom: calc(var(--pico-spacing) * 0.25);
 }
 
 main > hgroup h1 {
-    margin-bottom: calc(var(--pico-spacing) * .5);
+    margin-bottom: calc(var(--pico-spacing) * 0.5);
 }
 
 @media (min-width: 576px) {
@@ -54,6 +53,6 @@ main > hgroup h1 {
 
 @media (min-width: 1536px) {
     main > hgroup h1 h1 {
-        font-size: 3rem
+        font-size: 3rem;
     }
 }

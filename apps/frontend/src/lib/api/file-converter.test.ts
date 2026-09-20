@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchJobStatus, startConversion, uploadFile } from './file-converter';
+import { FakeEventSource } from '$lib/testing/fake-event-source';
+import {
+	downloadHref,
+	fetchJobStatus,
+	startConversion,
+	uploadFile,
+	watchJob
+} from './file-converter';
 
 const jsonResponse = (status: number, body: unknown) =>
 	new Response(JSON.stringify(body), { status });
@@ -227,4 +234,116 @@ describe('fetchJobStatus', () => {
 			detail: 'The request failed or the response could not be read.'
 		});
 	});
+});
+
+describe('downloadHref', () => {
+	it('points at the download route of the job', () => {
+		expect(downloadHref('abc')).toBe('/api/file-converter/files/abc/download');
+	});
+
+	it('URL-encodes the handle', () => {
+		expect(downloadHref('a/b')).toBe('/api/file-converter/files/a%2Fb/download');
+	});
+});
+
+describe('watchJob', () => {
+	beforeEach(() => {
+		FakeEventSource.reset();
+		vi.stubGlobal('EventSource', FakeEventSource);
+	});
+
+	it('opens the event stream of the job, with the handle URL-encoded', () => {
+		watchJob('a/b', vi.fn());
+
+		expect(FakeEventSource.instances.map((es) => es.url)).toEqual([
+			'/api/file-converter/files/a%2Fb/events'
+		]);
+	});
+
+	it('passes the update without the server envelope to the callback', () => {
+		const onUpdate = vi.fn();
+		watchJob('abc', onUpdate);
+
+		FakeEventSource.latest().emit('{"data":{"status":"processing"}}');
+
+		expect(onUpdate).toHaveBeenCalledExactlyOnceWith({ status: 'processing' });
+	});
+
+	it('passes the error message of a failed job', () => {
+		const onUpdate = vi.fn();
+		watchJob('abc', onUpdate);
+
+		FakeEventSource.latest().emit('{"data":{"status":"failed","error":"boom"}}');
+
+		expect(onUpdate).toHaveBeenCalledExactlyOnceWith({ status: 'failed', error: 'boom' });
+	});
+
+	it.each(['uploaded', 'pending', 'processing'])(
+		'keeps the stream open while the job is %s',
+		(status) => {
+			watchJob('abc', vi.fn());
+
+			FakeEventSource.latest().emit(`{"data":{"status":"${status}"}}`);
+
+			expect(FakeEventSource.latest().readyState).not.toBe(FakeEventSource.CLOSED);
+		}
+	);
+
+	it.each(['done', 'failed'])(
+		'delivers the %s update, then closes the stream so the browser does not reconnect',
+		(status) => {
+			const onUpdate = vi.fn();
+			watchJob('abc', onUpdate);
+
+			FakeEventSource.latest().emit(`{"data":{"status":"${status}"}}`);
+
+			expect(onUpdate).toHaveBeenCalledExactlyOnceWith({ status });
+			expect(FakeEventSource.latest().readyState).toBe(FakeEventSource.CLOSED);
+		}
+	);
+
+	it('reports a failure when the browser gives up on the connection', () => {
+		const onUpdate = vi.fn();
+		watchJob('abc', onUpdate);
+
+		FakeEventSource.latest().fail(true);
+
+		expect(onUpdate).toHaveBeenCalledExactlyOnceWith({
+			status: 'failed',
+			error: expect.any(String)
+		});
+	});
+
+	it('stays silent on a dropped connection that the browser retries', () => {
+		const onUpdate = vi.fn();
+		watchJob('abc', onUpdate);
+
+		FakeEventSource.latest().fail(false);
+
+		expect(onUpdate).not.toHaveBeenCalled();
+	});
+
+	it('closes the stream when the returned function is called', () => {
+		const stop = watchJob('abc', vi.fn());
+
+		stop();
+
+		expect(FakeEventSource.latest().readyState).toBe(FakeEventSource.CLOSED);
+	});
+
+	it.each(['not json', '{}', '{"data":null}', 'null'])(
+		'reports a failure and closes the stream on the malformed message %s',
+		(raw) => {
+			const onUpdate = vi.fn();
+			watchJob('abc', onUpdate);
+
+			expect(() => FakeEventSource.latest().emit(raw)).not.toThrow();
+
+			expect(onUpdate).toHaveBeenCalledExactlyOnceWith({
+				status: 'failed',
+				error: expect.any(String)
+			});
+			expect(FakeEventSource.latest().readyState).toBe(FakeEventSource.CLOSED);
+		}
+	);
 });
