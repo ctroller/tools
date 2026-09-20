@@ -10,7 +10,7 @@ import (
 	"github.com/davidbyttow/govips/v2/vips"
 )
 
-var imageTypes = []MediaType{"image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"}
+var imageTypes = []MediaType{MediaTypeAVIF, MediaTypeGIF, MediaTypeJPEG, MediaTypePNG, MediaTypeWEBP}
 
 type ImageConverter struct {
 	formats map[MediaType][]MediaType

@@ -27,8 +27,13 @@ fmt-check:
 vet:
 	go vet ./...
 
+fix:
+	go fix ./...
+
 tidy:
 	go mod tidy
+
+fix-all: fmt vet tidy fix
 
 check: fmt-check vet test build
 

@@ -4,6 +4,8 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
+	"strings"
 	"uuid"
 
 	"trox.dev/file-converter/internal/common"
@@ -23,19 +25,25 @@ func NewJobIntake(registry *convert.Registry, queue *Queue, store *StatusStore, 
 	}
 }
 
-func (intake *JobIntake) prepare(path, id string, src convert.MediaType) JobResult {
+func (intake *JobIntake) prepare(path, id string, src convert.MediaType, originalFileName string) JobResult {
+	originalFileName = strings.TrimSuffix(originalFileName, filepath.Ext(originalFileName))
+	if originalFileName == "" || originalFileName == "/" || originalFileName == "." {
+		originalFileName = "download"
+	}
+
 	result := JobResult{
 		JobID:    id,
 		Status:   StatusUploaded,
 		FilePath: path,
-		source:   src,
+		Source:   src,
+		BaseName: originalFileName,
 	}
 	intake.store.Set(id, result)
 
 	return result
 }
 
-func (intake *JobIntake) Submit(reader io.Reader, source convert.MediaType) (JobResult, error) {
+func (intake *JobIntake) Submit(reader io.Reader, source convert.MediaType, originalFileName string) (JobResult, error) {
 	id := uuid.New().String()
 	for _, found := intake.store.Get(id); found; {
 		id = uuid.New().String()
@@ -60,7 +68,7 @@ func (intake *JobIntake) Submit(reader io.Reader, source convert.MediaType) (Job
 		return JobResult{}, err
 	}
 
-	return intake.prepare(dst.Name(), id, source), nil
+	return intake.prepare(dst.Name(), id, source, originalFileName), nil
 }
 
 func (intake *JobIntake) StartJob(id string, target convert.MediaType) error {
@@ -72,11 +80,16 @@ func (intake *JobIntake) StartJob(id string, target convert.MediaType) error {
 		return common.IllegalStateErr{Msg: "job not ready"}
 	}
 
-	conv, found := intake.registry.Lookup(res.source, target)
+	conv, found := intake.registry.Lookup(res.Source, target)
 	if !found {
 		intake.store.SetStatus(id, StatusUploaded)
 		return common.NotFoundErr{Msg: "target converter not found"}
 	}
+
+	intake.store.Update(id, func(res JobResult) JobResult {
+		res.Target = target
+		return res
+	})
 
 	job := Job{
 		ID:        id,

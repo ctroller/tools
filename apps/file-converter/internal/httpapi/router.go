@@ -26,6 +26,7 @@ func NewRouter(c *config.Config, r *convert.Registry, i *task.JobIntake, fs *tas
 	mux.HandleFunc("GET /files/{handle}", api.FilesHandle)
 	mux.HandleFunc("DELETE /files/{handle}", api.DeleteHandle)
 	mux.HandleFunc("POST /files/{handle}/convert", api.Convert)
+	mux.HandleFunc("GET /files/{handle}/download", api.Download)
 	mux.HandleFunc("GET /files/{handle}/events", func(w http.ResponseWriter, r *http.Request) {
 		SSEHandler(w, r, 1*time.Second, api.FilesHandleStream)
 	})

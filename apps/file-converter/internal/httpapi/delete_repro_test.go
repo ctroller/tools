@@ -23,7 +23,7 @@ func TestDeleteHandle_UploadedJob_RemovesFile(t *testing.T) {
 	queue := task.NewQueue(1, 1, task.NewJobExecutor(fs), store)
 	intake := task.NewJobIntake(registry, queue, store, fs)
 
-	res, err := intake.Submit(strings.NewReader("hello"), "text/plain")
+	res, err := intake.Submit(strings.NewReader("hello"), "text/plain", "test.txt")
 	if err != nil {
 		t.Fatalf("Submit failed: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestDeleteHandle_RemovesJobRecord(t *testing.T) {
 	queue := task.NewQueue(1, 1, task.NewJobExecutor(fs), store)
 	intake := task.NewJobIntake(registry, queue, store, fs)
 
-	res, err := intake.Submit(strings.NewReader("hello"), "text/plain")
+	res, err := intake.Submit(strings.NewReader("hello"), "text/plain", "test.txt")
 	if err != nil {
 		t.Fatalf("Submit failed: %v", err)
 	}

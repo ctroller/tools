@@ -59,12 +59,21 @@ func (q *Queue) process(ctx context.Context, job Job) {
 	name, err := q.executor.Run(ctx, job)
 	if err != nil {
 		slog.Error("failed to process job", "id", job.ID, "err", err)
-		q.store.Set(job.ID, JobResult{JobID: job.ID, Status: StatusFailed, Err: err, FilePath: job.FilePath})
+		q.store.Update(job.ID, func(res JobResult) JobResult {
+			res.Status = StatusFailed
+			res.Err = err
+
+			return res
+		})
 		return
 	}
 
 	slog.Info("finished processing job", "id", job.ID)
-	q.store.Set(job.ID, JobResult{JobID: job.ID, Status: StatusDone, FilePath: name})
+	q.store.Update(job.ID, func(res JobResult) JobResult {
+		res.FilePath = name
+		res.Status = StatusDone
+		return res
+	})
 }
 
 func (q *Queue) Enqueue(job Job) error {

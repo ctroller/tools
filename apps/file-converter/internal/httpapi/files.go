@@ -18,7 +18,7 @@ type Result struct {
 
 // detectAndSubmit detects the media type of file, checks it is supported, and submits it as a
 // new conversion job. unsupportedMediaType builds the error detail for an unsupported type.
-func (a *API) detectAndSubmit(w http.ResponseWriter, file io.ReadSeeker, unsupportedMediaType func(t string) string) (Result, bool) {
+func (a *API) detectAndSubmit(w http.ResponseWriter, file io.ReadSeeker, originalFileName string, unsupportedMediaType func(t string) string) (Result, bool) {
 	t, err := mimetype.DetectReader(file)
 	if err != nil {
 		HttpProblemISE(w, "Failed to detect mimetype", err)
@@ -36,7 +36,7 @@ func (a *API) detectAndSubmit(w http.ResponseWriter, file io.ReadSeeker, unsuppo
 		return Result{}, false
 	}
 
-	res, err := a.intake.Submit(file, source)
+	res, err := a.intake.Submit(file, source, originalFileName)
 	if err != nil {
 		HttpProblemISE(w, "Failed to submit file", err)
 		return Result{}, false
@@ -74,7 +74,7 @@ func (a *API) Files(w http.ResponseWriter, r *http.Request) {
 		}
 	}(file)
 
-	result, ok := a.detectAndSubmit(w, file, func(t string) string {
+	result, ok := a.detectAndSubmit(w, file, handle.Filename, func(t string) string {
 		return "The uploaded file " + handle.Filename + " has an unsupported media type (" + t + ")"
 	})
 	if !ok {

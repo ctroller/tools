@@ -31,7 +31,7 @@ func (s JobStatus) Done() bool {
 	return s == StatusDone || s == StatusFailed
 }
 
-func (s JobStatus) Deleteable() bool {
+func (s JobStatus) Deletable() bool {
 	return s == StatusUploaded || s == StatusDone || s == StatusFailed
 }
 
@@ -40,7 +40,9 @@ type JobResult struct {
 	FilePath string
 	Status   JobStatus
 	Err      error
-	source   convert.MediaType
+	BaseName string
+	Target   convert.MediaType
+	Source   convert.MediaType
 }
 
 func (r JobResult) Error() string {

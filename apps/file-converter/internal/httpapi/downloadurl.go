@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strconv"
 	"syscall"
 	"time"
@@ -75,7 +76,7 @@ func (a *API) DownloadUrl(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("Downloading url", "url", rawUrl)
 
-	out := a.internalDownload(rawUrl, w)
+	out, name := a.internalDownload(rawUrl, w)
 	if out == nil {
 		return
 	}
@@ -86,7 +87,7 @@ func (a *API) DownloadUrl(w http.ResponseWriter, r *http.Request) {
 		a.fs.DeleteFile(out)
 	}(out)
 
-	result, ok := a.detectAndSubmit(w, out, func(t string) string {
+	result, ok := a.detectAndSubmit(w, out, name, func(t string) string {
 		return "The requested url has an unsupported media type (" + t + ")"
 	})
 	if !ok {
@@ -97,12 +98,13 @@ func (a *API) DownloadUrl(w http.ResponseWriter, r *http.Request) {
 }
 
 // internalDownload fetches rawUrl into a new store file and returns it open and seeked to the
-// start. On any failure it writes the response, cleans up the file, and returns nil.
-func (a *API) internalDownload(rawUrl string, w http.ResponseWriter) *os.File {
-	_, err := url.ParseRequestURI(rawUrl)
+// start, with the file name as the second parameter.
+// On any failure it writes the response, cleans up the file, and returns nil.
+func (a *API) internalDownload(rawUrl string, w http.ResponseWriter) (*os.File, string) {
+	u, err := url.ParseRequestURI(rawUrl)
 	if err != nil {
 		HttpProblem(w, "", "Bad Request", http.StatusBadRequest, "Invalid url parameter")
-		return nil
+		return nil, ""
 	}
 
 	id := uuid.New().String()
@@ -110,7 +112,7 @@ func (a *API) internalDownload(rawUrl string, w http.ResponseWriter) *os.File {
 	out, err := a.fs.Create(id)
 	if err != nil {
 		HttpProblemISE(w, "Failed to create file", err)
-		return nil
+		return nil, ""
 	}
 
 	success := false
@@ -127,11 +129,11 @@ func (a *API) internalDownload(rawUrl string, w http.ResponseWriter) *os.File {
 	if err != nil {
 		if notAllowedErr, ok := errors.AsType[common.NotAllowedErr](err); ok {
 			HttpProblem(w, "", "Bad Request", http.StatusBadRequest, notAllowedErr.Error())
-			return nil
+			return nil, ""
 		}
 
 		HttpProblemISE(w, "Failed to download file", err)
-		return nil
+		return nil, ""
 	}
 	defer func(Body io.ReadCloser) {
 		if err := Body.Close(); err != nil {
@@ -141,18 +143,18 @@ func (a *API) internalDownload(rawUrl string, w http.ResponseWriter) *os.File {
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		HttpProblem(w, "", "Bad Request", http.StatusBadRequest, fmt.Sprintf("The requested url returned status %d", resp.StatusCode))
-		return nil
+		return nil, ""
 	}
 
 	if cl := resp.Header.Get("Content-Length"); cl != "" {
 		l, err := strconv.ParseUint(cl, 10, 64)
 		if err != nil {
 			HttpProblemISE(w, "Failed to parse content length", err)
-			return nil
+			return nil, ""
 		}
 		if l > uint64(a.config.MaxFileSizeBytes) {
 			HttpProblem(w, "", "Request Entity Too Large", http.StatusRequestEntityTooLarge, "The requested file is too large ("+humanize.IBytes(l)+"). Allowed is a maximum of "+humanize.IBytes(uint64(a.config.MaxFileSizeBytes)))
-			return nil
+			return nil, ""
 		}
 	}
 
@@ -162,18 +164,18 @@ func (a *API) internalDownload(rawUrl string, w http.ResponseWriter) *os.File {
 	n, err := out.ReadFrom(limited)
 	if err != nil {
 		HttpProblemISE(w, "Failed to write file", err)
-		return nil
+		return nil, ""
 	}
 	if n > a.config.MaxFileSizeBytes {
 		HttpProblem(w, "", "Request Entity Too Large", http.StatusRequestEntityTooLarge, "The requested file is too large ("+humanize.IBytes(uint64(n))+"). Allowed is a maximum of "+humanize.IBytes(uint64(a.config.MaxFileSizeBytes)))
-		return nil
+		return nil, ""
 	}
 
 	if _, err = out.Seek(0, io.SeekStart); err != nil {
 		HttpProblemISE(w, "Failed to seek file", err)
-		return nil
+		return nil, ""
 	}
 
 	success = true
-	return out
+	return out, path.Base(u.Path)
 }
