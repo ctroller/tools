@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"syscall"
 	"time"
@@ -45,7 +46,8 @@ func main() {
 
 	app.JExecutor = task.NewJobExecutor(app.FStore)
 	statusStore := task.NewStatusStore()
-	app.JQueue = task.NewQueue(5, 1, app.JExecutor, statusStore)
+	// TODO move clamps to readConfig once readConfig is implemented properly
+	app.JQueue = task.NewQueue(max(1, app.Config.MaxJobs), max(1, app.Config.QueueWorkers), app.JExecutor, statusStore)
 	app.JIntake = task.NewJobIntake(app.Registry, app.JQueue, statusStore, app.FStore)
 
 	app.setupHTTP()
@@ -96,6 +98,9 @@ func readConfig() *config.Config {
 		Port:             8080,
 		Address:          "0.0.0.0",
 		MaxFileSizeBytes: 25 << 20,
+		MaxImagePxCount:  10000 * 10000,
+		QueueWorkers:     max(1, runtime.GOMAXPROCS(0)/2),
+		MaxJobs:          10,
 	}
 
 	slog.Info("Config initialized")
@@ -106,7 +111,8 @@ func readConfig() *config.Config {
 func (app *Application) setupRegistry() error {
 	slog.Info("Setting up converter registry...")
 	app.Registry = convert.NewRegistry()
-	app.Registry.Register(convert.NewImageConverter())
+	// TODO move clamps to readConfig once readConfig is implemented properly
+	app.Registry.Register(convert.NewImageConverter(max(1, app.Config.MaxImagePxCount)))
 
 	if err := app.Registry.StartAll(); err != nil {
 		return err

@@ -10,4 +10,13 @@ type Config struct {
 
 	// MaxFileSizeBytes specifies the maximum allowed file size in bytes. Defaults to `25 * 1024 * 1024` (25 MB).
 	MaxFileSizeBytes int64
+
+	// MaxImagePxCount specifies the maximum allowed image size in pixels. Defaults to `10000 * 10000` pixel.
+	MaxImagePxCount int64
+
+	// QueueWorkers is the number of workers in the job queue
+	QueueWorkers int
+
+	// MaxJobs is the number of total jobs waiting in the queue
+	MaxJobs int
 }

@@ -17,7 +17,7 @@ const imgPNG = "iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABHNCSVQICAgIfAhk
 
 func TestImageConverter_Formats(t *testing.T) {
 	t.Run("Should return all supported formats", func(t *testing.T) {
-		conv := NewImageConverter()
+		conv := NewImageConverter(1000000)
 		want := make(map[MediaType][]MediaType, len(imageTypes))
 
 		for _, src := range imageTypes {
@@ -61,7 +61,7 @@ func TestImageConverter_Convert(t *testing.T) {
 		},
 	}
 
-	conv := NewImageConverter()
+	conv := NewImageConverter(1000000)
 	for _, test := range tests {
 		image, err := base64.StdEncoding.DecodeString(test.image)
 		if err != nil {

@@ -25,8 +25,11 @@ func (a *API) Convert(w http.ResponseWriter, r *http.Request) {
 	if err := a.intake.StartJob(handle, target); err != nil {
 		var notFoundErr common.NotFoundErr
 		var illegalStateErr common.IllegalStateErr
+		var illegalArgErr common.IllegalArgErr
 		var queueFullErr task.QueueFullErr
 		switch {
+		case errors.As(err, &illegalArgErr):
+			HttpProblem(w, "", "Bad Request", http.StatusBadRequest, err.Error())
 		case errors.As(err, &notFoundErr):
 			HttpProblem(w, "", "Not Found", http.StatusNotFound, err.Error())
 		case errors.As(err, &illegalStateErr):

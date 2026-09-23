@@ -8,12 +8,15 @@ import (
 	"strings"
 
 	"github.com/davidbyttow/govips/v2/vips"
+	"github.com/dustin/go-humanize"
+	"trox.dev/file-converter/internal/common"
 )
 
 var imageTypes = []MediaType{MediaTypeAVIF, MediaTypeGIF, MediaTypeJPEG, MediaTypePNG, MediaTypeWEBP}
 
 type ImageConverter struct {
-	formats map[MediaType][]MediaType
+	formats         map[MediaType][]MediaType
+	maxImagePxCount int64
 }
 
 func (c ImageConverter) Start() error {
@@ -39,6 +42,14 @@ func (c ImageConverter) Convert(_ context.Context, in io.ReadSeeker, out io.Writ
 		return fmt.Errorf("can't create image from reader: %w", err)
 	}
 	defer image.Close()
+
+	height := image.Height()
+	width := image.Width()
+	px := int64(width) * int64(height)
+
+	if px > c.maxImagePxCount {
+		return common.IllegalArgErr{Msg: "image pixel count is too large: " + humanize.Comma(c.maxImagePxCount) + "px maximum, got " + humanize.Comma(px) + "px"}
+	}
 
 	return internalConvert(image, out, opts)
 }
@@ -77,7 +88,7 @@ func internalConvert(image *vips.ImageRef, out io.Writer, opts Options) error {
 	return nil
 }
 
-func NewImageConverter() *ImageConverter {
+func NewImageConverter(maxImagePxCount int64) *ImageConverter {
 	var formats = make(map[MediaType][]MediaType)
 	for _, src := range imageTypes {
 		var tmpFormats []MediaType
@@ -92,5 +103,6 @@ func NewImageConverter() *ImageConverter {
 
 	return &ImageConverter{
 		formats,
+		maxImagePxCount,
 	}
 }
